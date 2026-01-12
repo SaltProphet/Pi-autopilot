@@ -13,6 +13,9 @@ from agents.gumroad_agent import create_listing, upload_to_gumroad
 from services.storage import Storage
 from services.cost_governor import CostGovernor, CostLimitExceeded
 from services.llm_client import LLMClient
+from services.error_handler import ErrorHandler
+from services.audit_logger import AuditLogger
+from services.backup_manager import BackupManager
 from config import settings
 
 
@@ -50,11 +53,31 @@ def run_pipeline():
     cost_governor = CostGovernor()
     llm_client = LLMClient(cost_governor)
     storage = Storage()
+    error_handler = ErrorHandler()
+    audit_logger = AuditLogger(settings.database_path)
+    backup_manager = BackupManager(settings.database_path)
+    
+    # Perform daily backup at pipeline start
+    print("=== BACKUP & MAINTENANCE ===")
+    backup_path = backup_manager.backup_database()
+    print(f"Database backed up to: {backup_path}")
+    backup_manager.cleanup_old_backups()
+    
+    run_id = f"run_{int(datetime.now().timestamp())}"
     
     try:
         print("=== REDDIT INGESTION ===")
         ingest_result = ingest_reddit_posts()
         print(f"Saved {ingest_result['total_saved']} new posts")
+        
+        # Log ingestion in audit trail
+        for post_id in ingest_result.get('post_ids', []):
+            audit_logger.log(
+                action='post_ingested',
+                post_id=post_id,
+                run_id=run_id,
+                details={'source': 'reddit', 'subreddits': settings.reddit_subreddits}
+            )
         
         print("\n=== PROCESSING POSTS ===")
         unprocessed_posts = storage.get_unprocessed_posts()
@@ -73,9 +96,24 @@ def run_pipeline():
                 if problem_data.get("discard", True):
                     print("DISCARD: Problem not monetizable")
                     storage.log_pipeline_run(post_id, "problem_extraction", "discarded", problem_path)
+                    audit_logger.log(
+                        action='post_discarded',
+                        post_id=post_id,
+                        run_id=run_id,
+                        details={'stage': 'problem_extraction', 'reason': 'not_monetizable'}
+                    )
                     continue
                 
                 storage.log_pipeline_run(post_id, "problem_extraction", "completed", problem_path)
+                audit_logger.log(
+                    action='problem_extracted',
+                    post_id=post_id,
+                    run_id=run_id,
+                    details={
+                        'summary': problem_data.get('problem_summary', '')[:100],
+                        'urgency_score': problem_data.get('urgency_score', 0)
+                    }
+                )
                 print(f"Problem: {problem_data['problem_summary'][:60]}...")
                 
                 print("Stage: SPEC_GENERATION")
@@ -85,19 +123,47 @@ def run_pipeline():
                 if not spec_data.get("build", False):
                     print("REJECT: Spec build=false")
                     storage.log_pipeline_run(post_id, "spec_generation", "rejected", spec_path)
+                    audit_logger.log(
+                        action='spec_generated',
+                        post_id=post_id,
+                        run_id=run_id,
+                        details={'rejected': True, 'reason': 'build_false'}
+                    )
                     continue
                 
                 if spec_data.get("confidence", 0) < 70:
                     print("REJECT: Confidence too low")
                     storage.log_pipeline_run(post_id, "spec_generation", "rejected", spec_path)
+                    audit_logger.log(
+                        action='spec_generated',
+                        post_id=post_id,
+                        run_id=run_id,
+                        details={'rejected': True, 'reason': 'low_confidence', 'confidence': spec_data.get("confidence", 0)}
+                    )
                     continue
                 
                 if len(spec_data.get("deliverables", [])) < 3:
                     print("REJECT: Too few deliverables")
                     storage.log_pipeline_run(post_id, "spec_generation", "rejected", spec_path)
+                    audit_logger.log(
+                        action='spec_generated',
+                        post_id=post_id,
+                        run_id=run_id,
+                        details={'rejected': True, 'reason': 'insufficient_deliverables', 'count': len(spec_data.get("deliverables", []))}
+                    )
                     continue
                 
                 storage.log_pipeline_run(post_id, "spec_generation", "completed", spec_path)
+                audit_logger.log(
+                    action='spec_generated',
+                    post_id=post_id,
+                    run_id=run_id,
+                    details={
+                        'title': spec_data.get('working_title', '')[:80],
+                        'price': spec_data.get('price_recommendation', 0),
+                        'confidence': spec_data.get('confidence', 0)
+                    }
+                )
                 print(f"Spec: {spec_data['working_title']}")
                 
                 regeneration_count = 0
@@ -107,32 +173,78 @@ def run_pipeline():
                 
                 while regeneration_count <= settings.max_regeneration_attempts and not content_verified:
                     print(f"Stage: CONTENT_GENERATION (attempt {regeneration_count + 1})")
-                    content = generate_content(spec_data, llm_client)
-                    content_path = save_content_artifact(post_id, content)
-                    storage.log_pipeline_run(post_id, "content_generation", "completed", content_path)
-                    
-                    print("Stage: VERIFICATION")
-                    verdict = verify_content(content, llm_client)
-                    verdict_path = save_artifact(post_id, f"verdict_attempt_{regeneration_count + 1}", verdict)
-                    
-                    if verdict.get("pass", False):
-                        print("PASS: Content verified")
-                        storage.log_pipeline_run(post_id, "verification", "passed", verdict_path)
-                        content_verified = True
-                    else:
-                        print(f"FAIL: {', '.join(verdict.get('reasons', []))}")
-                        storage.log_pipeline_run(post_id, "verification", "failed", verdict_path)
-                        regeneration_count += 1
+                    try:
+                        content = generate_content(spec_data, llm_client)
+                        content_path = save_content_artifact(post_id, content)
+                        storage.log_pipeline_run(post_id, "content_generation", "completed", content_path)
+                        
+                        print("Stage: VERIFICATION")
+                        verdict = verify_content(content, llm_client)
+                        verdict_path = save_artifact(post_id, f"verdict_attempt_{regeneration_count + 1}", verdict)
+                        
+                        if verdict.get("pass", False):
+                            print("PASS: Content verified")
+                            storage.log_pipeline_run(post_id, "verification", "passed", verdict_path)
+                            audit_logger.log(
+                                action='content_verified',
+                                post_id=post_id,
+                                run_id=run_id,
+                                details={'attempt': regeneration_count + 1}
+                            )
+                            content_verified = True
+                        else:
+                            print(f"FAIL: {', '.join(verdict.get('reasons', []))}")
+                            storage.log_pipeline_run(post_id, "verification", "failed", verdict_path)
+                            audit_logger.log(
+                                action='content_rejected',
+                                post_id=post_id,
+                                run_id=run_id,
+                                details={'attempt': regeneration_count + 1, 'reasons': verdict.get('reasons', [])}
+                            )
+                            regeneration_count += 1
+                    except Exception as e:
+                        error_artifact = error_handler.log_error(
+                            post_id=post_id,
+                            stage='content_generation',
+                            exception=e,
+                            context={'attempt': regeneration_count + 1}
+                        )
+                        error_categorization = error_handler.categorize_error(e)
+                        audit_logger.log(
+                            action='error_occurred',
+                            post_id=post_id,
+                            run_id=run_id,
+                            details={'stage': 'content_generation', 'error_type': type(e).__name__, 'transient': error_categorization['is_transient']},
+                            error_occurred=True
+                        )
+                        if error_categorization['is_transient']:
+                            regeneration_count += 1
+                            if regeneration_count > settings.max_regeneration_attempts:
+                                raise
+                        else:
+                            raise
                 
                 if not content_verified:
                     print("HARD DISCARD: Max regeneration attempts reached")
                     storage.log_pipeline_run(post_id, "pipeline", "discarded_verification_failed", None, "Max regeneration attempts")
+                    audit_logger.log(
+                        action='post_discarded',
+                        post_id=post_id,
+                        run_id=run_id,
+                        details={'stage': 'verification', 'reason': 'max_attempts_exceeded'}
+                    )
                     continue
                 
                 print("Stage: GUMROAD_LISTING")
                 listing_text = create_listing(spec_data, content, llm_client)
                 listing_path = save_content_artifact(post_id, listing_text)
                 storage.log_pipeline_run(post_id, "gumroad_listing", "completed", listing_path)
+                audit_logger.log(
+                    action='gumroad_listed',
+                    post_id=post_id,
+                    run_id=run_id,
+                    details={'title': spec_data.get('working_title', '')[:80]}
+                )
                 
                 print("Stage: GUMROAD_UPLOAD")
                 upload_result = upload_to_gumroad(spec_data, listing_text, content_path)
@@ -141,18 +253,34 @@ def run_pipeline():
                 if upload_result.get("success"):
                     print(f"SUCCESS: Product uploaded - {upload_result.get('product_url')}")
                     storage.log_pipeline_run(post_id, "gumroad_upload", "completed", upload_path)
+                    audit_logger.log(
+                        action='gumroad_uploaded',
+                        post_id=post_id,
+                        run_id=run_id,
+                        details={'product_url': upload_result.get('product_url'), 'price': spec_data.get('price_recommendation')}
+                    )
                 else:
                     print("FAIL: Gumroad upload failed")
                     storage.log_pipeline_run(post_id, "gumroad_upload", "failed", upload_path, "Upload failed")
+                    audit_logger.log(
+                        action='error_occurred',
+                        post_id=post_id,
+                        run_id=run_id,
+                        details={'stage': 'gumroad_upload', 'reason': upload_result.get('error', 'unknown')},
+                        error_occurred=True
+                    )
             
             except CostLimitExceeded as e:
                 print(f"COST LIMIT EXCEEDED: {str(e)}")
                 storage.log_pipeline_run(post_id, "pipeline", "cost_limit_exceeded", None, str(e))
+                audit_logger.log(
+                    action='cost_limit_exceeded',
+                    post_id=post_id,
+                    run_id=run_id,
+                    details={'reason': str(e)},
+                    cost_limit_exceeded=True
+                )
                 break
-            
-            except (KeyboardInterrupt, SystemExit):
-                # Allow user interrupts and system exits to propagate
-                raise
             
             except (KeyboardInterrupt, SystemExit):
                 # Allow user interrupts and system exits to propagate
@@ -161,6 +289,23 @@ def run_pipeline():
             except Exception as e:
                 print(f"ERROR: {str(e)}")
                 storage.log_pipeline_run(post_id, "pipeline", "error", None, str(e))
+                
+                error_artifact = error_handler.log_error(
+                    post_id=post_id,
+                    stage='pipeline',
+                    exception=e,
+                    context={'post_title': post.get('title', '')}
+                )
+                error_categorization = error_handler.categorize_error(e)
+                audit_logger.log(
+                    action='error_occurred',
+                    post_id=post_id,
+                    run_id=run_id,
+                    details={'stage': 'pipeline', 'error_type': type(e).__name__, 'transient': error_categorization['is_transient']},
+                    error_occurred=True
+                )
+                # Log and continue to next post on non-transient errors
+                continue
     
     except CostLimitExceeded as e:
         print(f"\nPIPELINE ABORTED: {str(e)}")

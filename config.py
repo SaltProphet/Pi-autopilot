@@ -1,5 +1,6 @@
 import os
 from pydantic_settings import BaseSettings
+from services.config_validator import ConfigValidator, ConfigValidationError
 
 
 class Settings(BaseSettings):
@@ -36,6 +37,16 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Validate configuration on startup
+try:
+    validator = ConfigValidator(settings)
+    validator.validate_or_raise()
+except ConfigValidationError as e:
+    print("CONFIGURATION ERROR:")
+    for error in e.errors:
+        print(f"  - {error}")
+    raise SystemExit("Configuration validation failed. Check .env file and try again.")
 
 os.makedirs(os.path.dirname(settings.database_path), exist_ok=True)
 os.makedirs(settings.artifacts_path, exist_ok=True)

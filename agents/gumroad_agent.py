@@ -1,9 +1,12 @@
 import os
 from services.llm_client import LLMClient
 from services.gumroad_client import GumroadClient
+from services.sanitizer import InputSanitizer
 
 
 def create_listing(spec_data: dict, content: str, llm_client: LLMClient) -> str:
+    sanitizer = InputSanitizer()
+    
     prompt_path = os.path.join(os.path.dirname(__file__), "..", "prompts", "gumroad_listing.txt")
     try:
         with open(prompt_path, 'r', encoding='utf-8') as f:
@@ -25,15 +28,23 @@ Content Preview: {content[:500]}
     
     listing_text = llm_client.call_text(system_prompt, "", max_tokens=1500)
     
+    # Sanitize listing before returning
+    listing_text = sanitizer.sanitize_gumroad_content(listing_text)
+    
     return listing_text
 
 
 def upload_to_gumroad(spec_data: dict, listing_text: str, content_file_path: str) -> dict:
+    sanitizer = InputSanitizer()
     gumroad_client = GumroadClient()
     
     # Parse listing with validation
     title = _extract_field(listing_text, 'Title:', spec_data.get('working_title', 'Product'))
     description = _extract_description(listing_text)
+    
+    # Sanitize title and description before upload
+    title = sanitizer.sanitize_gumroad_content(title)
+    description = sanitizer.sanitize_gumroad_content(description)
     
     # Validate essential fields
     if not title or len(title.strip()) < 3:

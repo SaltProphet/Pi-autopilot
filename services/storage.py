@@ -60,6 +60,23 @@ class Storage:
                 )
             """)
             
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS audit_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    post_id TEXT,
+                    run_id TEXT,
+                    details TEXT,
+                    error_occurred INTEGER DEFAULT 0,
+                    cost_limit_exceeded INTEGER DEFAULT 0
+                )
+            """)
+            
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_post_id ON audit_log(post_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_timestamp_desc ON audit_log(timestamp DESC)")
+            
             conn.commit()
     
     def save_post(self, post_data: dict):

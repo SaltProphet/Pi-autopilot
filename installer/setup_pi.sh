@@ -61,11 +61,20 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 echo "Creating data directories..."
-mkdir -p data/artifacts
+mkdir -p data/artifacts data/artifacts/backups
+
+# Set restrictive permissions on sensitive files
+echo "Enforcing file permissions..."
+chmod 600 .env 2>/dev/null || true
+chmod 600 data/pipeline.db 2>/dev/null || true
+chmod 700 data
+chmod 700 data/artifacts
+chmod 700 data/artifacts/backups
 
 if [ ! -f ".env" ]; then
     echo "Creating .env file from template..."
     cp .env.example .env
+    chmod 600 .env
     echo ""
     echo "IMPORTANT: Edit /opt/pi-autopilot/.env with your API keys"
     echo ""
@@ -107,6 +116,13 @@ EOF
 systemctl daemon-reload
 systemctl enable pi-autopilot.timer
 systemctl start pi-autopilot.timer
+
+echo "Setting up daily backup cron job..."
+cat > /etc/cron.d/pi-autopilot-backup << 'EOF'
+# Run backups daily at 2 AM
+0 2 * * * root cd /opt/pi-autopilot && /opt/pi-autopilot/venv/bin/python -c "from services.backup_manager import BackupManager; BackupManager('./data/pipeline.db').backup_database(); BackupManager('./data/pipeline.db').cleanup_old_backups()" >> /var/log/pi-autopilot-backup.log 2>&1
+EOF
+chmod 644 /etc/cron.d/pi-autopilot-backup
 
 echo ""
 echo "Setup complete!"

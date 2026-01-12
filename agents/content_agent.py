@@ -1,8 +1,11 @@
 import os
 from services.llm_client import LLMClient
+from services.sanitizer import InputSanitizer
 
 
 def generate_content(spec_data: dict, llm_client: LLMClient) -> str:
+    sanitizer = InputSanitizer()
+    
     prompt_path = os.path.join(os.path.dirname(__file__), "..", "prompts", "product_content.txt")
     try:
         with open(prompt_path, 'r', encoding='utf-8') as f:
@@ -19,5 +22,8 @@ def generate_content(spec_data: dict, llm_client: LLMClient) -> str:
     system_prompt = system_prompt.replace('<<FAILURE_REASON>>', spec_data.get('why_existing_products_fail', 'not specified'))
     
     content = llm_client.call_text(system_prompt, "", max_tokens=3000)
+    
+    # Sanitize generated content before returning
+    content = sanitizer.sanitize_gumroad_content(content)
     
     return content
