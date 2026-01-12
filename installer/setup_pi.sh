@@ -2,6 +2,19 @@
 
 set -e
 
+# Cleanup handler for partial installations if an error occurs
+cleanup() {
+    echo "An error occurred during setup. Attempting to clean up partial installation..." >&2
+
+    # Only remove the installation directory if it is set and exists
+    if [ -n "$INSTALL_DIR" ] && [ -d "$INSTALL_DIR" ]; then
+        echo "Removing installation directory: $INSTALL_DIR" >&2
+        rm -rf "$INSTALL_DIR"
+    fi
+}
+
+# Run cleanup on any error
+trap 'cleanup' ERR
 INSTALL_DIR="/opt/pi-autopilot"
 
 # Cleanup handler for partial installations if an error occurs

@@ -154,6 +154,10 @@ def run_pipeline():
                 # Allow user interrupts and system exits to propagate
                 raise
             
+            except (KeyboardInterrupt, SystemExit):
+                # Allow user interrupts and system exits to propagate
+                raise
+            
             except Exception as e:
                 print(f"ERROR: {str(e)}")
                 storage.log_pipeline_run(post_id, "pipeline", "error", None, str(e))
