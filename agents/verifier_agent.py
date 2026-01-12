@@ -11,9 +11,9 @@ def verify_content(content: str, llm_client: LLMClient) -> dict:
     except OSError as e:
         raise RuntimeError(f"Failed to read verifier prompt file at {prompt_path}: {e}") from e
     
-    system_prompt = prompt_template.replace('<<FULL_PRODUCT_CONTENT>>', content)
+    system_prompt = prompt_template
     
-    result = llm_client.call_structured(system_prompt, "", max_tokens=1000)
+    result = llm_client.call_structured(system_prompt, content, max_tokens=1000)
     
     verdict = Verdict(
         pass_=result.get("pass", False),
