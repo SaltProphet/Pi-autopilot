@@ -93,10 +93,18 @@ class Storage:
     
     def get_unprocessed_posts(self):
         with self._get_conn() as conn:
+            # Get posts that either:
+            # 1. Have never been processed (pr.id IS NULL)
+            # 2. Have only failed/discarded/cost_exceeded runs (no successful completion)
             rows = conn.execute("""
                 SELECT rp.* FROM reddit_posts rp
-                LEFT JOIN pipeline_runs pr ON rp.id = pr.post_id
-                WHERE pr.id IS NULL
+                LEFT JOIN (
+                    SELECT post_id, MAX(created_at) as last_run
+                    FROM pipeline_runs
+                    WHERE status IN ('completed', 'gumroad_uploaded')
+                    GROUP BY post_id
+                ) successful ON rp.id = successful.post_id
+                WHERE successful.post_id IS NULL
                 ORDER BY rp.timestamp DESC
             """).fetchall()
             return [dict(row) for row in rows]

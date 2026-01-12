@@ -5,6 +5,12 @@ import time
 from contextlib import contextmanager
 from config import settings
 
+try:
+    import tiktoken
+    TIKTOKEN_AVAILABLE = True
+except ImportError:
+    TIKTOKEN_AVAILABLE = False
+
 
 class CostGovernor:
     def __init__(self):
@@ -16,6 +22,16 @@ class CostGovernor:
         self.run_cost = 0.0
         self.aborted = False
         self.abort_reason = None
+        
+        # Initialize tiktoken encoder if available
+        if TIKTOKEN_AVAILABLE:
+            try:
+                self.encoder = tiktoken.encoding_for_model(settings.openai_model)
+            except KeyError:
+                # Fallback to cl100k_base for unknown models
+                self.encoder = tiktoken.get_encoding("cl100k_base")
+        else:
+            self.encoder = None
     
     @contextmanager
     def _get_conn(self):
@@ -43,7 +59,12 @@ class CostGovernor:
             conn.commit()
     
     def estimate_tokens(self, text: str) -> int:
-        return int(len(text) / 3.5)
+        if self.encoder:
+            # Use tiktoken for accurate token counting
+            return len(self.encoder.encode(text))
+        else:
+            # Fallback to rough approximation
+            return int(len(text) / 3.5)
     
     def estimate_cost(self, input_tokens: int, output_tokens: int) -> float:
         input_cost = input_tokens * settings.openai_input_token_price
