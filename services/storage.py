@@ -8,7 +8,7 @@ class Storage:
     def __init__(self):
         self.db_path = settings.database_path
         self._init_db()
-    
+
     @contextmanager
     def _get_conn(self):
         conn = sqlite3.connect(self.db_path)
@@ -17,7 +17,7 @@ class Storage:
             yield conn
         finally:
             conn.close()
-    
+
     def _init_db(self):
         with self._get_conn() as conn:
             conn.execute("""
@@ -33,7 +33,7 @@ class Storage:
                     raw_json TEXT
                 )
             """)
-            
+
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS pipeline_runs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,9 +46,9 @@ class Storage:
                     FOREIGN KEY (post_id) REFERENCES reddit_posts(id)
                 )
             """)
-            
+
             conn.commit()
-    
+
     def save_post(self, post_data: dict):
         with self._get_conn() as conn:
             try:
@@ -70,14 +70,14 @@ class Storage:
                 return True
             except sqlite3.IntegrityError:
                 return False
-    
+
     def get_post(self, post_id: str):
         with self._get_conn() as conn:
             row = conn.execute("SELECT * FROM reddit_posts WHERE id = ?", (post_id,)).fetchone()
             if row:
                 return dict(row)
             return None
-    
+
     def get_unprocessed_posts(self):
         with self._get_conn() as conn:
             rows = conn.execute("""
@@ -87,7 +87,7 @@ class Storage:
                 ORDER BY rp.timestamp DESC
             """).fetchall()
             return [dict(row) for row in rows]
-    
+
     def log_pipeline_run(self, post_id: str, stage: str, status: str, artifact_path: str = None, error_message: str = None):
         with self._get_conn() as conn:
             conn.execute("""
@@ -95,7 +95,7 @@ class Storage:
                 VALUES (?, ?, ?, ?, ?)
             """, (post_id, stage, status, artifact_path, error_message))
             conn.commit()
-    
+
     def get_pipeline_runs(self, post_id: str):
         with self._get_conn() as conn:
             rows = conn.execute("""

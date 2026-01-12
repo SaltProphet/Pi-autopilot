@@ -11,7 +11,7 @@ class Problem:
     current_bad_solutions: List[str]
     urgency_score: int
     evidence_quotes: List[str]
-    
+
     def to_dict(self):
         return {
             "discard": self.discard,

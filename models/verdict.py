@@ -9,7 +9,7 @@ class Verdict:
     missing_elements: List[str]
     generic_language_detected: bool
     example_quality_score: int
-    
+
     def to_dict(self):
         return {
             "pass": self.pass_,

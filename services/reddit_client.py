@@ -9,11 +9,11 @@ class RedditClient:
             client_secret=settings.reddit_client_secret,
             user_agent=settings.reddit_user_agent
         )
-    
+
     def fetch_posts(self, subreddit_name: str, limit: int, min_score: int):
         subreddit = self.reddit.subreddit(subreddit_name)
         posts = []
-        
+
         for submission in subreddit.hot(limit=limit):
             if submission.score >= min_score:
                 posts.append({
@@ -27,5 +27,5 @@ class RedditClient:
                     "timestamp": int(submission.created_utc),
                     "num_comments": submission.num_comments
                 })
-        
+
         return posts

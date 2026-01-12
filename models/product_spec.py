@@ -13,7 +13,7 @@ class ProductSpec:
     deliverables: List[str]
     price_recommendation: float
     confidence: int
-    
+
     def to_dict(self):
         return {
             "build": self.build,

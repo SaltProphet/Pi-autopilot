@@ -8,12 +8,12 @@ def generate_spec(problem_data: dict, llm_client: LLMClient) -> dict:
     prompt_path = os.path.join(os.path.dirname(__file__), "..", "prompts", "product_spec.txt")
     with open(prompt_path, 'r') as f:
         prompt_template = f.read()
-    
+
     problem_json = json.dumps(problem_data, indent=2)
     system_prompt = prompt_template.replace('<<PROBLEM_JSON>>', problem_json)
-    
+
     result = llm_client.call_structured(system_prompt, "", max_tokens=1500)
-    
+
     spec = ProductSpec(
         build=result.get("build", False),
         product_type=result.get("product_type", ""),
@@ -25,5 +25,5 @@ def generate_spec(problem_data: dict, llm_client: LLMClient) -> dict:
         price_recommendation=float(result.get("price_recommendation", 0)),
         confidence=int(result.get("confidence", 0))
     )
-    
+
     return spec.to_dict()
