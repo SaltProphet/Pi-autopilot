@@ -2,6 +2,8 @@
 
 Fully automated, verifier-first digital product engine for Raspberry Pi.
 
+**Now with enterprise-grade security hardening** (backup, audit logging, API resilience, input sanitization).
+
 ## System Architecture
 
 ```
@@ -9,6 +11,18 @@ Reddit → Problem Extraction → Spec Generation → Content Generation → Ver
 ```
 
 Cost governor enforces hard limits at every LLM call.
+
+## 🔒 Security Features
+
+✅ **Configuration Validation** - Validates all required settings on startup  
+✅ **Daily Backups** - Automated database backups with 7-day/4-week/12-month retention  
+✅ **Error Logging** - Full exception context logged to immutable artifacts  
+✅ **Input Sanitization** - XSS prevention for Gumroad listings  
+✅ **API Resilience** - Exponential backoff retry logic for transient failures  
+✅ **Audit Trail** - Complete operation history for compliance & debugging  
+✅ **File Permissions** - 0600 on secrets, 0700 on directories  
+
+→ See [SECURITY.md](SECURITY.md) for detailed security documentation
 
 ## Installation
 
@@ -236,12 +250,26 @@ The pipeline executes sequentially:
 │  ├─ reddit_client.py       # Reddit API client
 │  ├─ gumroad_client.py      # Gumroad API client
 │  ├─ storage.py             # SQLite storage
-│  └─ cost_governor.py       # Cost control & limits
+│  ├─ cost_governor.py       # Cost control & limits
+│  ├─ config_validator.py    # Config validation (NEW)
+│  ├─ backup_manager.py      # Database backups (NEW)
+│  ├─ error_handler.py       # Error logging (NEW)
+│  ├─ sanitizer.py           # Input sanitization (NEW)
+│  ├─ retry_handler.py       # API retry logic (NEW)
+│  └─ audit_logger.py        # Audit trail (NEW)
 └─ models/
    ├─ problem.py             # Problem model
    ├─ product_spec.py        # Product spec model
    └─ verdict.py             # Verification verdict model
 ```
+
+## Documentation
+
+- [SECURITY.md](SECURITY.md) - Security features and hardening
+- [docs/CHANGELOG.md](docs/CHANGELOG.md) - Version history
+- [docs/ROADMAP.md](docs/ROADMAP.md) - Feature roadmap (Q1-Q4 2026)
+- [docs/IMPLEMENTATION_OUTLINE.md](docs/IMPLEMENTATION_OUTLINE.md) - Technical architecture
+- [docs/IMPLEMENTATION_SUMMARY.md](docs/IMPLEMENTATION_SUMMARY.md) - Implementation details
 
 ## Artifacts
 
@@ -252,9 +280,11 @@ All pipeline artifacts are saved to `./data/artifacts/{post_id}/`:
 - `content_*.md` - Generated product content
 - `verdict_attempt_*.json` - Verification results
 - `gumroad_upload_*.json` - Upload results
+- `error_*.json` - Exception logs with full context
 
-Cost abort files saved to `./data/artifacts/`:
+Backups and cost tracking:
 
+- `backups/pipeline_db_*.sqlite.gz` - Daily database backups
 - `abort_{run_id}.json` - Cost limit failures
 
 ## Systemd Timer
