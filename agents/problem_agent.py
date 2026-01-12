@@ -3,6 +3,35 @@ from services.llm_client import LLMClient
 from models.problem import Problem
 
 
+def _truncate_preserving_boundary(text: str, max_length: int) -> str:
+    """
+    Truncate text to at most max_length characters, preferring to cut at
+    paragraph, line, or sentence boundaries rather than mid-sentence.
+    """
+    if not text or len(text) <= max_length:
+        return text
+
+    # Start with a hard cap, then look backwards for a nicer break point.
+    candidate = text[:max_length]
+
+    # Prefer paragraph or line breaks.
+    break_positions = [
+        candidate.rfind("\n\n"),
+        candidate.rfind("\n"),
+        candidate.rfind(". "),
+        candidate.rfind("! "),
+        candidate.rfind("? "),
+    ]
+    best_pos = max(break_positions)
+
+    if best_pos == -1:
+        # No natural boundary found; fall back to hard truncation.
+        return candidate
+
+    # Include the boundary character(s) in the result.
+    return candidate[: best_pos + 1]
+
+
 def extract_problem(post_data: dict, llm_client: LLMClient) -> dict:
     prompt_path = os.path.join(os.path.dirname(__file__), "..", "prompts", "problem_extraction.txt")
     try:
@@ -11,12 +40,15 @@ def extract_problem(post_data: dict, llm_client: LLMClient) -> dict:
     except OSError as e:
         raise RuntimeError(f"Failed to read problem extraction prompt file at {prompt_path}: {e}") from e
     
+    body_text = post_data.get('body', '')
+    truncated_body = _truncate_preserving_boundary(body_text, 2000)
+    
     reddit_text = f"""
 Title: {post_data['title']}
 Subreddit: r/{post_data['subreddit']}
 Author: {post_data['author']}
 Score: {post_data['score']}
-Content: {post_data['body'][:2000]}
+Content: {truncated_body}
 """
     
     system_prompt = prompt_template.replace('<<REDDIT_POSTS_AND_COMMENTS>>', reddit_text)

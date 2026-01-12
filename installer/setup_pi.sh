@@ -2,6 +2,22 @@
 
 set -e
 
+INSTALL_DIR="/opt/pi-autopilot"
+
+# Cleanup handler for partial installations if an error occurs
+cleanup() {
+    echo "An error occurred during setup. Attempting to clean up partial installation..." >&2
+
+    # Only remove the installation directory if it is set and exists
+    if [ -n "$INSTALL_DIR" ] && [ -d "$INSTALL_DIR" ]; then
+        echo "Removing installation directory: $INSTALL_DIR" >&2
+        rm -rf "$INSTALL_DIR"
+    fi
+}
+
+# Run cleanup on any error
+trap 'cleanup' ERR
+
 echo "Pi-Autopilot Setup Script"
 echo "========================="
 
@@ -14,7 +30,6 @@ echo "Installing system dependencies..."
 apt-get update
 apt-get install -y python3 python3-pip python3-venv git
 
-INSTALL_DIR="/opt/pi-autopilot"
 echo "Creating installation directory: $INSTALL_DIR"
 mkdir -p $INSTALL_DIR
 cd $INSTALL_DIR
