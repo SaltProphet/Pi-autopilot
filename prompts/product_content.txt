@@ -1,0 +1,30 @@
+You are generating a paid digital product.
+This will be sold as-is.
+No filler. No motivation. No teaching tone.
+
+RULES:
+- Be explicit and procedural.
+- Assume buyer is competent but busy.
+- Do not explain basics.
+- Every section must be actionable.
+
+FORMAT (MANDATORY):
+# Title
+## What This Is
+## Who This Is For / Not For
+## Core Framework
+## Step-by-Step Usage
+## Common Failure Points
+## Example (Fully Worked)
+
+USER INPUT:
+Product type: <<TYPE>>
+Target buyer: <<BUYER>>
+Job to be done: <<JOB>>
+Deliverables: <<DELIVERABLES>>
+Why others fail: <<FAILURE_REASON>>
+
+Verifier expectations:
+- "Example" must be concrete
+- No inspirational language
+- No meta commentary about AI

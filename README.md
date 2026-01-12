@@ -1,6 +1,242 @@
 # Pi-Autopilot
 
-**Raspberry Pi AI-Orchestrated Reddit-to-Gumroad Digital Product Pipeline**
+Fully automated, verifier-first digital product engine for Raspberry Pi.
+
+## System Architecture
+
+```
+Reddit → Problem Extraction → Spec Generation → Content Generation → Verification → Gumroad Upload
+```
+
+## Installation
+
+### On Raspberry Pi
+
+```bash
+sudo bash installer/setup_pi.sh
+```
+
+Edit `/opt/pi-autopilot/.env` with your API credentials.
+
+### Manual Installation
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+cp .env.example .env
+# Edit .env with your credentials
+
+mkdir -p data/artifacts
+```
+
+## Configuration
+
+Edit `.env`:
+
+```env
+REDDIT_CLIENT_ID=your_reddit_client_id
+REDDIT_CLIENT_SECRET=your_reddit_client_secret
+REDDIT_USER_AGENT=Pi-Autopilot/2.0
+
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-4
+
+GUMROAD_ACCESS_TOKEN=your_gumroad_access_token
+
+DATABASE_PATH=./data/pipeline.db
+ARTIFACTS_PATH=./data/artifacts
+
+REDDIT_SUBREDDITS=SideProject,Entrepreneur,startups
+REDDIT_MIN_SCORE=10
+REDDIT_POST_LIMIT=20
+
+MAX_REGENERATION_ATTEMPTS=1
+```
+
+## Usage
+
+Run the complete pipeline:
+
+```bash
+python main.py
+```
+
+The pipeline executes sequentially:
+
+1. Ingest Reddit posts from configured subreddits
+2. Extract problems from posts (discard if not monetizable)
+3. Generate product specifications (reject if confidence < 70)
+4. Generate product content
+5. Verify content quality (max 1 regeneration attempt)
+6. Generate Gumroad listing
+7. Upload to Gumroad
+
+## Pipeline Rules
+
+- Verifier-first: Content must pass verification or get discarded
+- One regeneration: If content fails verification, regenerate once
+- Hard discard: If second attempt fails, permanently discard
+- Sequential execution: No parallel processing
+- Disk-based state: All artifacts saved to disk
+- JSON between modules: All inter-agent communication uses JSON
+
+## File Structure
+
+```
+/
+├─ main.py                    # Pipeline orchestrator
+├─ config.py                  # Configuration management
+├─ requirements.txt           # Python dependencies
+├─ .env.example              # Environment template
+├─ installer/
+│  ├─ setup_pi.sh            # Raspberry Pi setup script
+│  └─ run.sh                 # Manual run script
+├─ prompts/
+│  ├─ problem_extraction.txt
+│  ├─ product_spec.txt
+│  ├─ verifier.txt
+│  ├─ product_content.txt
+│  └─ gumroad_listing.txt
+├─ agents/
+│  ├─ reddit_ingest.py       # Reddit ingestion
+│  ├─ problem_agent.py       # Problem extraction
+│  ├─ spec_agent.py          # Spec generation
+│  ├─ verifier_agent.py      # Quality verification
+│  ├─ content_agent.py       # Content generation
+│  └─ gumroad_agent.py       # Gumroad upload
+├─ services/
+│  ├─ llm_client.py          # OpenAI API client
+│  ├─ reddit_client.py       # Reddit API client
+│  ├─ gumroad_client.py      # Gumroad API client
+│  └─ storage.py             # SQLite storage
+└─ models/
+   ├─ problem.py             # Problem model
+   ├─ product_spec.py        # Product spec model
+   └─ verdict.py             # Verification verdict model
+```
+
+## Artifacts
+
+All pipeline artifacts are saved to `./data/artifacts/{post_id}/`:
+
+- `problem_*.json` - Extracted problems
+- `spec_*.json` - Product specifications
+- `content_*.md` - Generated product content
+- `verdict_attempt_*.json` - Verification results
+- `gumroad_upload_*.json` - Upload results
+
+## Systemd Timer
+
+After running `setup_pi.sh`, the pipeline runs every 6 hours automatically.
+
+Check status:
+```bash
+systemctl status pi-autopilot.timer
+```
+
+View logs:
+```bash
+journalctl -u pi-autopilot.service -f
+```
+
+Manual trigger:
+```bash
+systemctl start pi-autopilot.service
+```
+
+## API Keys
+
+### Reddit
+1. Go to https://www.reddit.com/prefs/apps
+2. Create app (script type)
+3. Copy client ID and secret
+
+### OpenAI
+1. Visit https://platform.openai.com/api-keys
+2. Create new key
+3. Copy key
+
+### Gumroad
+1. Go to Settings → Advanced → Applications
+2. Create application
+3. Generate access token
+4. Copy token
+
+## Verification Logic
+
+Content must pass all checks:
+
+- `example_quality_score >= 7`
+- `generic_language_detected == false`
+- `missing_elements == []`
+
+If any check fails, content is regenerated once. If second attempt fails, the post is permanently discarded.
+
+## Rejection Criteria
+
+Posts are rejected at various stages:
+
+**Problem Extraction:**
+- `discard == true` (not monetizable)
+- No economic consequence
+- Generic complaints
+
+**Spec Generation:**
+- `build == false`
+- `confidence < 70`
+- `deliverables.length < 3`
+- Generic target audience
+
+**Verification:**
+- Poor example quality
+- Generic language detected
+- Missing required sections
+- Two failed attempts
+
+## Database Schema
+
+**reddit_posts:**
+- id, title, body, timestamp, subreddit, author, score, url, raw_json
+
+**pipeline_runs:**
+- id, post_id, stage, status, artifact_path, error_message, created_at
+
+## Troubleshooting
+
+**No posts ingested:**
+- Check Reddit credentials in `.env`
+- Lower `REDDIT_MIN_SCORE` threshold
+- Verify subreddit names are correct
+
+**All posts discarded:**
+- Check OpenAI API key
+- Review `problem_*.json` artifacts
+- Adjust subreddit targets to more entrepreneurial communities
+
+**Verification always fails:**
+- Check `verdict_*.json` for specific reasons
+- Review `content_*.md` for quality issues
+- Consider adjusting prompts in `/prompts`
+
+**Gumroad upload fails:**
+- Verify `GUMROAD_ACCESS_TOKEN` is correct
+- Check Gumroad account status
+- Review `gumroad_upload_*.json` for error details
+
+## Production Notes
+
+- Run on Raspberry Pi 3B+ or newer
+- Requires stable internet connection
+- Runs headless and unattended
+- All decisions logged to SQLite
+- All artifacts preserved on disk
+- No manual intervention required
+
+## License
+
+See LICENSE file.
 
 An automated system that scrapes Reddit for trending topics, generates product specifications using OpenAI, and creates digital products on Gumroad — all running on a Raspberry Pi.
 

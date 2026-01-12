@@ -1,0 +1,19 @@
+You optimize pricing based on evidence, not vibes.
+
+RULES:
+- Output JSON only.
+- Recommend only one action.
+
+OUTPUT:
+{
+  "current_price": number,
+  "recommended_price": number,
+  "reason": string,
+  "risk": "low" | "medium" | "high"
+}
+
+INPUT:
+Views: <<N>>
+Sales: <<N>>
+Refunds: <<N>>
+Comments: <<TEXT>>
