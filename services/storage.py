@@ -47,6 +47,19 @@ class Storage:
                 )
             """)
             
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS cost_tracking (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    run_id INTEGER NOT NULL,
+                    tokens_sent INTEGER NOT NULL,
+                    tokens_received INTEGER NOT NULL,
+                    usd_cost REAL NOT NULL,
+                    timestamp INTEGER NOT NULL,
+                    model TEXT,
+                    abort_reason TEXT
+                )
+            """)
+            
             conn.commit()
     
     def save_post(self, post_data: dict):

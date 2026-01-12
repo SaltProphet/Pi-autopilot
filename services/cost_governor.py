@@ -1,5 +1,6 @@
 import sqlite3
 import json
+import os
 import time
 from contextlib import contextmanager
 from config import settings
@@ -8,7 +9,7 @@ from config import settings
 class CostGovernor:
     def __init__(self):
         self.db_path = settings.database_path
-        self.run_id = int(time.time())
+        self.run_id = time.time_ns()
         self._init_db()
         self.run_tokens_sent = 0
         self.run_tokens_received = 0
@@ -101,6 +102,7 @@ class CostGovernor:
             """, (self.run_id, 0, 0, 0.0, int(time.time()), settings.openai_model, self.abort_reason))
             conn.commit()
         
+        os.makedirs(settings.artifacts_path, exist_ok=True)
         abort_file = f"{settings.artifacts_path}/abort_{self.run_id}.json"
         with open(abort_file, 'w') as f:
             json.dump({

@@ -3,19 +3,17 @@ Description=Pi-Autopilot Reddit-to-Gumroad Pipeline
 After=network.target
 
 [Service]
-Type=simple
-User=pi
-WorkingDirectory=/home/pi/Pi-autopilot
-Environment="PATH=/home/pi/Pi-autopilot/venv/bin:/usr/local/bin:/usr/bin:/bin"
-EnvironmentFile=/home/pi/Pi-autopilot/.env
-ExecStart=/home/pi/Pi-autopilot/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
-Restart=always
-RestartSec=10
+Type=oneshot
+User=root
+WorkingDirectory=/opt/pi-autopilot
+Environment="PATH=/opt/pi-autopilot/venv/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/opt/pi-autopilot/.env
+ExecStart=/opt/pi-autopilot/venv/bin/python /opt/pi-autopilot/main.py
 
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=saltprophet
+SyslogIdentifier=pi-autopilot
 
 [Install]
 WantedBy=multi-user.target

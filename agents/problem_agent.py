@@ -1,4 +1,3 @@
-import json
 import os
 from services.llm_client import LLMClient
 from models.problem import Problem
@@ -6,8 +5,11 @@ from models.problem import Problem
 
 def extract_problem(post_data: dict, llm_client: LLMClient) -> dict:
     prompt_path = os.path.join(os.path.dirname(__file__), "..", "prompts", "problem_extraction.txt")
-    with open(prompt_path, 'r') as f:
-        prompt_template = f.read()
+    try:
+        with open(prompt_path, 'r', encoding='utf-8') as f:
+            prompt_template = f.read()
+    except OSError as e:
+        raise RuntimeError(f"Failed to read problem extraction prompt file at {prompt_path}: {e}") from e
     
     reddit_text = f"""
 Title: {post_data['title']}

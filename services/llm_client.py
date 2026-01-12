@@ -1,7 +1,7 @@
 import json
 from openai import OpenAI
 from config import settings
-from services.cost_governor import CostGovernor, CostLimitExceeded
+from services.cost_governor import CostGovernor
 
 
 class LLMClient:

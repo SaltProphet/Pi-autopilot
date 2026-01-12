@@ -1,4 +1,3 @@
-import json
 from services.reddit_client import RedditClient
 from services.storage import Storage
 from config import settings

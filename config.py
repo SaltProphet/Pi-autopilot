@@ -27,8 +27,8 @@ class Settings(BaseSettings):
     
     kill_switch: bool = False
     
-    openai_input_token_price: float = 0.00003
-    openai_output_token_price: float = 0.00006
+    openai_input_token_price: float = 0.03
+    openai_output_token_price: float = 0.06
     
     class Config:
         env_file = ".env"

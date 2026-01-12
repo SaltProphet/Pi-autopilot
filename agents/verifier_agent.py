@@ -1,4 +1,3 @@
-import json
 import os
 from services.llm_client import LLMClient
 from models.verdict import Verdict
@@ -6,8 +5,11 @@ from models.verdict import Verdict
 
 def verify_content(content: str, llm_client: LLMClient) -> dict:
     prompt_path = os.path.join(os.path.dirname(__file__), "..", "prompts", "verifier.txt")
-    with open(prompt_path, 'r') as f:
-        prompt_template = f.read()
+    try:
+        with open(prompt_path, 'r', encoding='utf-8') as f:
+            prompt_template = f.read()
+    except OSError as e:
+        raise RuntimeError(f"Failed to read verifier prompt file at {prompt_path}: {e}") from e
     
     system_prompt = prompt_template.replace('<<FULL_PRODUCT_CONTENT>>', content)
     
