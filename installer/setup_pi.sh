@@ -1,0 +1,118 @@
+#!/bin/bash
+
+set -e
+
+# Cleanup handler for partial installations if an error occurs
+cleanup() {
+    echo "An error occurred during setup. Attempting to clean up partial installation..." >&2
+
+    # Only remove the installation directory if it is set and exists
+    if [ -n "$INSTALL_DIR" ] && [ -d "$INSTALL_DIR" ]; then
+        echo "Removing installation directory: $INSTALL_DIR" >&2
+        rm -rf "$INSTALL_DIR"
+    fi
+}
+
+# Run cleanup on any error
+trap 'cleanup' ERR
+INSTALL_DIR="/opt/pi-autopilot"
+
+# Cleanup handler for partial installations if an error occurs
+cleanup() {
+    echo "An error occurred during setup. Attempting to clean up partial installation..." >&2
+
+    # Only remove the installation directory if it is set and exists
+    if [ -n "$INSTALL_DIR" ] && [ -d "$INSTALL_DIR" ]; then
+        echo "Removing installation directory: $INSTALL_DIR" >&2
+        rm -rf "$INSTALL_DIR"
+    fi
+}
+
+# Run cleanup on any error
+trap 'cleanup' ERR
+
+echo "Pi-Autopilot Setup Script"
+echo "========================="
+
+if [ "$EUID" -ne 0 ]; then 
+    echo "Please run with sudo"
+    exit 1
+fi
+
+echo "Installing system dependencies..."
+apt-get update
+apt-get install -y python3 python3-pip python3-venv git
+
+echo "Creating installation directory: $INSTALL_DIR"
+mkdir -p $INSTALL_DIR
+cd $INSTALL_DIR
+
+if [ ! -d ".git" ]; then
+    echo "Cloning repository..."
+    git clone https://github.com/SaltProphet/Pi-autopilot.git .
+fi
+
+echo "Creating Python virtual environment..."
+python3 -m venv venv
+source venv/bin/activate
+
+echo "Installing Python dependencies..."
+pip install --upgrade pip
+pip install -r requirements.txt
+
+echo "Creating data directories..."
+mkdir -p data/artifacts
+
+if [ ! -f ".env" ]; then
+    echo "Creating .env file from template..."
+    cp .env.example .env
+    echo ""
+    echo "IMPORTANT: Edit /opt/pi-autopilot/.env with your API keys"
+    echo ""
+fi
+
+echo "Setting up systemd service..."
+cat > /etc/systemd/system/pi-autopilot.service << 'EOF'
+[Unit]
+Description=Pi-Autopilot Digital Product Pipeline
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/pi-autopilot
+Environment="PATH=/opt/pi-autopilot/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/opt/pi-autopilot/venv/bin/python /opt/pi-autopilot/main.py
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "Setting up systemd timer..."
+cat > /etc/systemd/system/pi-autopilot.timer << 'EOF'
+[Unit]
+Description=Run Pi-Autopilot every 6 hours
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=6h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+systemctl daemon-reload
+systemctl enable pi-autopilot.timer
+systemctl start pi-autopilot.timer
+
+echo ""
+echo "Setup complete!"
+echo ""
+echo "Next steps:"
+echo "1. Edit /opt/pi-autopilot/.env with your API keys"
+echo "2. Test run: cd /opt/pi-autopilot && source venv/bin/activate && python main.py"
+echo "3. Check timer: systemctl status pi-autopilot.timer"
+echo "4. View logs: journalctl -u pi-autopilot.service -f"
