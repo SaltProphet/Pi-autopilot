@@ -1,0 +1,24 @@
+[Unit]
+Description=Pi-Autopilot Dashboard Service
+After=network.target
+Wants=pi-autopilot.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/pi-autopilot
+Environment="PATH=/opt/pi-autopilot/venv/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/opt/pi-autopilot/.env
+ExecStart=/opt/pi-autopilot/venv/bin/python /opt/pi-autopilot/dashboard.py
+
+# Auto-restart on failure
+Restart=on-failure
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pi-autopilot-dashboard
+
+[Install]
+WantedBy=multi-user.target

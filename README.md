@@ -2,50 +2,55 @@
 
 Fully automated, verifier-first digital product engine for Raspberry Pi.
 
-**Now with enterprise-grade security hardening** (backup, audit logging, API resilience, input sanitization).
+**Now with systemd automation + real-time dashboard** (hourly scheduling, cost tracking, activity monitoring).
+
+## 🎯 Key Features
+
+✅ **Automated Scheduling** - Systemd timer runs pipeline hourly (configurable)  
+✅ **Real-time Dashboard** - Web UI for cost, activity, and status monitoring  
+✅ **Cost Controls** - Hard limits prevent runaway API bills  
+✅ **Daily Backups** - Automated database backups with retention policies  
+✅ **Audit Trail** - Complete operation history for debugging  
+✅ **Input Sanitization** - XSS prevention for all external content  
 
 ## System Architecture
 
 ```
 Reddit → Problem Extraction → Spec Generation → Content Generation → Verification → Gumroad Upload
+         ↓
+    [Systemd Timer: Hourly]
+         ↓
+    [Real-time Dashboard: Monitoring]
 ```
 
 Cost governor enforces hard limits at every LLM call.
 
-## 🔒 Security Features
+## 🚀 Quick Start
 
-✅ **Configuration Validation** - Validates all required settings on startup  
-✅ **Daily Backups** - Automated database backups with 7-day/4-week/12-month retention  
-✅ **Error Logging** - Full exception context logged to immutable artifacts  
-✅ **Input Sanitization** - XSS prevention for Gumroad listings  
-✅ **API Resilience** - Exponential backoff retry logic for transient failures  
-✅ **Audit Trail** - Complete operation history for compliance & debugging  
-✅ **File Permissions** - 0600 on secrets, 0700 on directories  
-
-→ See [SECURITY.md](SECURITY.md) for detailed security documentation
-
-## Installation
-
-### On Raspberry Pi
+### Installation (Pi)
 
 ```bash
 sudo bash installer/setup_pi.sh
 ```
 
-Edit `/opt/pi-autopilot/.env` with your API credentials.
+Then:
+1. Edit `/opt/pi-autopilot/.env` with API keys
+2. Access dashboard: `http://<pi-ip>:8000`
+3. Check timer: `systemctl list-timers pi-autopilot.timer`
 
-### Manual Installation
+### Access Dashboard
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+After installation, the dashboard is live at:
 
-cp .env.example .env
-# Edit .env with your credentials
-
-mkdir -p data/artifacts
 ```
+http://<your-pi-ip>:8000
+```
+
+Real-time monitoring of:
+- 💰 Cost tracking (lifetime + last 24h)
+- ✅ Pipeline stats (completed/discarded/rejected)
+- 📍 Active posts being processed
+- 📋 Recent activity feed
 
 ## Configuration
 
@@ -78,6 +83,31 @@ KILL_SWITCH=false
 
 OPENAI_INPUT_TOKEN_PRICE=0.00003
 OPENAI_OUTPUT_TOKEN_PRICE=0.00006
+```
+
+### Custom Timer Schedule
+
+Edit timer to change frequency:
+
+```bash
+sudo systemctl edit pi-autopilot.timer
+```
+
+Options:
+```ini
+# Every 30 minutes
+OnUnitActiveSec=30min
+
+# Every 6 hours
+OnUnitActiveSec=6h
+
+# Daily at 2 AM
+OnCalendar=*-*-* 02:00:00
+```
+
+Then reload:
+```bash
+sudo systemctl daemon-reload
 ```
 
 ## Cost Controls

@@ -80,41 +80,25 @@ if [ ! -f ".env" ]; then
     echo ""
 fi
 
-echo "Setting up systemd service..."
-cat > /etc/systemd/system/pi-autopilot.service << 'EOF'
-[Unit]
-Description=Pi-Autopilot Digital Product Pipeline
-After=network.target
-
-[Service]
-Type=oneshot
-User=root
-WorkingDirectory=/opt/pi-autopilot
-Environment="PATH=/opt/pi-autopilot/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/opt/pi-autopilot/venv/bin/python /opt/pi-autopilot/main.py
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
+echo "Setting up systemd service for pipeline..."
+cp $INSTALL_DIR/saltprophet.service /etc/systemd/system/pi-autopilot.service
+chmod 644 /etc/systemd/system/pi-autopilot.service
 
 echo "Setting up systemd timer..."
-cat > /etc/systemd/system/pi-autopilot.timer << 'EOF'
-[Unit]
-Description=Run Pi-Autopilot every 6 hours
+cp $INSTALL_DIR/saltprophet.timer /etc/systemd/system/pi-autopilot.timer
+chmod 644 /etc/systemd/system/pi-autopilot.timer
 
-[Timer]
-OnBootSec=5min
-OnUnitActiveSec=6h
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-EOF
+echo "Setting up systemd service for dashboard..."
+cp $INSTALL_DIR/pi-autopilot-dashboard.service /etc/systemd/system/
+chmod 644 /etc/systemd/system/pi-autopilot-dashboard.service
 
 systemctl daemon-reload
+systemctl enable pi-autopilot.service
 systemctl enable pi-autopilot.timer
+systemctl enable pi-autopilot-dashboard.service
+
+echo "Starting services..."
+systemctl start pi-autopilot-dashboard.service
 systemctl start pi-autopilot.timer
 
 echo "Setting up daily backup cron job..."
@@ -125,10 +109,18 @@ EOF
 chmod 644 /etc/cron.d/pi-autopilot-backup
 
 echo ""
-echo "Setup complete!"
+echo "✅ Setup complete!"
 echo ""
 echo "Next steps:"
 echo "1. Edit /opt/pi-autopilot/.env with your API keys"
-echo "2. Test run: cd /opt/pi-autopilot && source venv/bin/activate && python main.py"
+echo "2. Test run: systemctl start pi-autopilot.service"
 echo "3. Check timer: systemctl status pi-autopilot.timer"
-echo "4. View logs: journalctl -u pi-autopilot.service -f"
+echo "4. Access dashboard: http://<your-pi-ip>:8000"
+echo ""
+echo "Useful commands:"
+echo "  • View pipeline logs:  journalctl -fu pi-autopilot.service"
+echo "  • View dashboard logs: journalctl -fu pi-autopilot-dashboard.service"
+echo "  • Check next timer run: systemctl list-timers pi-autopilot.timer"
+echo "  • Edit timer schedule: systemctl edit pi-autopilot.timer"
+echo ""
+echo "See docs/MONITORING.md for detailed monitoring instructions"

@@ -1,0 +1,14 @@
+[Unit]
+Description=Pi-Autopilot Reddit-to-Gumroad Pipeline Timer
+Requires=pi-autopilot.service
+
+[Timer]
+# Run 5 minutes after boot
+OnBootSec=5min
+# Then run every hour
+OnUnitActiveSec=1h
+# Persistent means if timer triggers while system is off, it runs on next boot
+Persistent=true
+
+[Install]
+WantedBy=timers.target
