@@ -1,0 +1,45 @@
+name: Deploy to Raspberry Pi
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Deploy to Raspberry Pi
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.PI_HOST }}
+          username: ${{ secrets.PI_USERNAME }}
+          key: ${{ secrets.PI_SSH_KEY }}
+          script: |
+            cd /home/pi/Pi-autopilot
+            
+            # Pull latest changes
+            echo "Pulling latest code..."
+            git pull origin main
+            
+            # Activate virtual environment
+            source venv/bin/activate
+            
+            # Upgrade pip and install/upgrade dependencies
+            echo "Upgrading dependencies..."
+            pip install --upgrade pip
+            pip install --upgrade -r requirements.txt
+            
+            # Restart systemd service
+            echo "Restarting service..."
+            sudo systemctl restart saltprophet.service
+            
+            # Check service status
+            echo "Service status:"
+            sudo systemctl status saltprophet.service --no-pager
+            
+            echo "Deployment complete!"
