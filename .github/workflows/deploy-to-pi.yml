@@ -20,26 +20,26 @@ jobs:
           username: ${{ secrets.PI_USERNAME }}
           key: ${{ secrets.PI_SSH_KEY }}
           script: |
-            cd /home/pi/Pi-autopilot
-            
+            cd /opt/pi-autopilot
+
             # Pull latest changes
             echo "Pulling latest code..."
             git pull origin main
-            
+
             # Activate virtual environment
             source venv/bin/activate
-            
+
             # Upgrade pip and install/upgrade dependencies
             echo "Upgrading dependencies..."
             pip install --upgrade pip
             pip install --upgrade -r requirements.txt
-            
-            # Restart systemd service
-            echo "Restarting service..."
-            sudo systemctl restart saltprophet.service
-            
-            # Check service status
-            echo "Service status:"
-            sudo systemctl status saltprophet.service --no-pager
-            
+
+            # Restart systemd timer (not service, since it runs on schedule)
+            echo "Restarting timer..."
+            sudo systemctl restart pi-autopilot.timer
+
+            # Check timer status
+            echo "Timer status:"
+            sudo systemctl status pi-autopilot.timer --no-pager
+
             echo "Deployment complete!"

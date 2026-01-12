@@ -25,14 +25,7 @@ RUN mkdir -p /app/data
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
-ENV DATABASE_PATH=/app/data/pi_autopilot.db
-
-# Expose port
-EXPOSE 8000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
+ENV DATABASE_PATH=/app/data/pipeline.db
 
 # Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "main.py"]
