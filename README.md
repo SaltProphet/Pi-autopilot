@@ -32,7 +32,7 @@ Cost governor enforces hard limits at every LLM call.
 Before installing, ensure you have SSH keys configured for GitHub:
 
 ```bash
-# Generate SSH key if you don't have one
+# Generate SSH key if you don't have one (replace with your GitHub email)
 ssh-keygen -t ed25519 -C "your_email@example.com"
 
 # Copy the public key

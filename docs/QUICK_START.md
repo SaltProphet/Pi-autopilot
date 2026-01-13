@@ -19,7 +19,7 @@
 Before running the installer, ensure SSH keys are configured for GitHub:
 
 ```bash
-# Generate SSH key if needed
+# Generate SSH key if needed (replace with your GitHub email)
 ssh-keygen -t ed25519 -C "your_email@example.com"
 
 # View public key
@@ -34,17 +34,21 @@ ssh -T git@github.com
 ### On Your Raspberry Pi
 
 ```bash
-# 1. One-command setup
+# 1. Clone repository first (if not already done)
+git clone git@github.com:SaltProphet/Pi-autopilot.git /opt/pi-autopilot
+cd /opt/pi-autopilot
+
+# 2. Run setup
 sudo bash installer/setup_pi.sh
 
-# 2. Add API keys
+# 3. Add API keys
 sudo nano /opt/pi-autopilot/.env
 
-# 3. Start everything
+# 4. Start everything
 sudo systemctl start pi-autopilot.timer
 sudo systemctl start pi-autopilot-dashboard.service
 
-# 4. Check it works
+# 5. Check it works
 systemctl list-timers pi-autopilot.timer
 ```
 

@@ -44,7 +44,7 @@ python dashboard.py
 Ensure SSH keys are configured for GitHub:
 
 ```bash
-# Generate SSH key (if needed)
+# Generate SSH key (if needed) - replace with your GitHub email
 ssh-keygen -t ed25519 -C "your_email@example.com"
 
 # View your public key
