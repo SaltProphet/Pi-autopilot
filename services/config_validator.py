@@ -1,12 +1,13 @@
 """Configuration validation module for Pi-Autopilot."""
 import re
 from typing import List, Tuple
-from config import settings
 
 
 class ConfigValidationError(Exception):
     """Raised when configuration validation fails."""
-    pass
+    def __init__(self, message, errors=None):
+        super().__init__(message)
+        self.errors = errors or []
 
 
 class ConfigValidator:
@@ -28,7 +29,12 @@ class ConfigValidator:
     
     def __init__(self, config=None):
         """Initialize validator with optional config override."""
-        self.config = config or settings
+        if config is None:
+            # Import here to avoid circular dependency
+            from config import settings
+            self.config = settings
+        else:
+            self.config = config
         self.errors: List[str] = []
     
     def validate_all(self) -> Tuple[bool, List[str]]:
@@ -52,7 +58,7 @@ class ConfigValidator:
             error_message = "Configuration validation failed:\n" + "\n".join(
                 f"  ✗ {error}" for error in errors
             )
-            raise ConfigValidationError(error_message)
+            raise ConfigValidationError(error_message, errors)
     
     def _validate_required_fields(self):
         """Check that all required env vars are present."""

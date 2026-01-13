@@ -179,8 +179,22 @@ class TestSalesFeedback:
         import config
         monkeypatch.setattr(config.settings, 'refund_rate_max', 0.3)
         monkeypatch.setattr(config.settings, 'sales_lookback_days', 30)
+        monkeypatch.setattr(config.settings, 'zero_sales_suppression_count', 3)
         
         current_time = int(time.time())
+        
+        # Create an uploaded product
+        storage.save_post({
+            "id": "post1",
+            "title": "Test Post",
+            "body": "Content",
+            "timestamp": current_time,
+            "subreddit": "test",
+            "author": "user",
+            "score": 50,
+            "url": "http://test.com"
+        })
+        storage.log_pipeline_run("post1", "gumroad_upload", "completed", "/path")
         
         # Create products with high refund rate (5 refunds out of 10 sales = 50%)
         storage.save_sales_metrics("prod1", "Product 1", 10, 10000, 200, 5, current_time)
