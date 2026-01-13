@@ -3,7 +3,7 @@ import pytest
 import tempfile
 import os
 import time
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from services.sales_feedback import SalesFeedback
 from services.storage import Storage
 from services.gumroad_client import GumroadClient
@@ -153,11 +153,13 @@ class TestSalesFeedback:
         current_time = int(time.time())
         
         # Create 3 recent uploaded products with zero sales
+        # Use matching titles and product names so the matching logic works
         for i in range(3):
             post_id = f"post{i}"
+            title = f"Test Product {i}"
             storage.save_post({
                 "id": post_id,
-                "title": f"Test Post {i}",
+                "title": title,
                 "body": "Content",
                 "timestamp": current_time - (i * 1000),
                 "subreddit": "test",
@@ -166,7 +168,8 @@ class TestSalesFeedback:
                 "url": f"http://test{i}.com"
             })
             storage.log_pipeline_run(post_id, "gumroad_upload", "completed", "/path")
-            storage.save_sales_metrics(f"prod{i}", f"Product {i}", 0, 0, 50, 0, current_time)
+            # Use matching product name so title-based matching works
+            storage.save_sales_metrics(f"prod{i}", title, 0, 0, 50, 0, current_time)
         
         sales_feedback = SalesFeedback(storage)
         result = sales_feedback.should_suppress_publishing()

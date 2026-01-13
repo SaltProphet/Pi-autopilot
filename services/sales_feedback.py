@@ -3,6 +3,7 @@ import time
 from typing import Dict, List
 from services.storage import Storage
 from services.gumroad_client import GumroadClient
+from services.sanitizer import InputSanitizer
 from config import settings
 
 
@@ -18,6 +19,7 @@ class SalesFeedback:
         """
         self.storage = storage or Storage()
         self.gumroad_client = gumroad_client or GumroadClient()
+        self.sanitizer = InputSanitizer()
     
     def ingest_sales_data(self) -> Dict:
         """Fetch sales data from Gumroad and persist to database.
@@ -87,10 +89,12 @@ class SalesFeedback:
         recent_uploads = [p for p in uploaded_products if p['created_at'] >= cutoff_timestamp]
         
         if not sales_metrics:
+            # No sales data tracked yet - all products are too new or data hasn't been fetched
             return {
                 "products_published": len(recent_uploads),
                 "products_sold": 0,
-                "zero_sale_products": len(recent_uploads),
+                "zero_sale_products": 0,  # Distinguish: we don't have data yet
+                "products_without_data": len(recent_uploads),  # New field to clarify
                 "avg_price_cents": 0,
                 "revenue_per_product_cents": 0,
                 "total_revenue_cents": 0,
@@ -145,7 +149,8 @@ class SalesFeedback:
         sorted_products = sorted(sales_metrics, key=lambda x: x["sales_count"], reverse=True)
         top_products = sorted_products[:limit]
         
-        return [p["product_name"] for p in top_products if p["sales_count"] > 0]
+        # Sanitize product names for LLM prompt inclusion
+        return [self.sanitizer.sanitize_for_llm(p["product_name"]) for p in top_products if p["sales_count"] > 0]
     
     def get_zero_sale_categories(self, lookback_days: int = None, limit: int = 5) -> List[str]:
         """Get categories/topics from products with zero sales.
@@ -165,7 +170,8 @@ class SalesFeedback:
         # Get products with zero sales
         zero_sale_products = [p for p in sales_metrics if p["sales_count"] == 0]
         
-        return [p["product_name"] for p in zero_sale_products[:limit]]
+        # Sanitize product names for LLM prompt inclusion
+        return [self.sanitizer.sanitize_for_llm(p["product_name"]) for p in zero_sale_products[:limit]]
     
     def should_suppress_publishing(self) -> Dict:
         """Determine if publishing should be suppressed based on recent performance.
@@ -185,25 +191,50 @@ class SalesFeedback:
             # No products yet, don't suppress
             return {"suppress": False, "reason": ""}
         
-        # Check if last N products had zero sales
-        recent_product_ids = [p['post_id'] for p in recent_uploads[:settings.zero_sales_suppression_count]]
-        
-        # Match recent products with sales data
+        # Check if last N products had zero sales.
+        # NOTE: We cannot reliably match Reddit post_id to Gumroad product_id, so we
+        # instead match on product_name/title between recent uploads and sales metrics.
+        recent_products = recent_uploads[:settings.zero_sales_suppression_count]
+
         zero_sales_count = 0
-        for product_id in recent_product_ids:
-            # Check if this product has any sales
+        no_data_count = 0
+        for product in recent_products:
+            # Derive a comparable product name from the upload record.
+            raw_name = product.get("title")
+
+            if not raw_name:
+                # If we cannot determine a name, skip this product for zero-sales counting
+                # instead of making incorrect assumptions.
+                no_data_count += 1
+                continue
+
+            normalized_name = str(raw_name).strip().lower()
+
+            # Check if this product has any sales by matching on normalized product_name.
             has_sales = any(
-                product_id in s.get("product_id", "") 
-                for s in sales_metrics 
-                if s["sales_count"] > 0
+                normalized_name == str(s.get("product_name", "")).strip().lower()
+                and s.get("sales_count", 0) > 0
+                for s in sales_metrics
             )
-            if not has_sales:
+            
+            # Check if we have data for this product at all
+            has_data = any(
+                normalized_name == str(s.get("product_name", "")).strip().lower()
+                for s in sales_metrics
+            )
+            
+            if has_data and not has_sales:
+                # Product has sales data tracked but zero sales
                 zero_sales_count += 1
+            elif not has_data:
+                # Product has no sales data yet (too new to have data)
+                no_data_count += 1
         
+        # Only suppress if we have actual zero-sales data, not just missing data
         if zero_sales_count >= settings.zero_sales_suppression_count:
             return {
                 "suppress": True,
-                "reason": f"Last {zero_sales_count} products had zero sales"
+                "reason": f"Last {zero_sales_count} products had zero sales (tracked with data)"
             }
         
         # Check refund rate

@@ -1,6 +1,6 @@
 import sqlite3
 import json
-from datetime import datetime
+import time
 from contextlib import contextmanager
 from config import settings
 
@@ -174,7 +174,7 @@ class Storage:
     def get_sales_metrics_since(self, days: int):
         """Get sales metrics from the last N days."""
         with self._get_conn() as conn:
-            cutoff_timestamp = int((datetime.now().timestamp() - (days * 86400)))
+            cutoff_timestamp = int(time.time() - (days * 86400))
             rows = conn.execute("""
                 SELECT * FROM sales_metrics
                 WHERE fetched_at >= ?
