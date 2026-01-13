@@ -295,6 +295,7 @@ The pipeline executes sequentially:
 
 ## Documentation
 
+- **[docs/SYSTEM_PIPELINE_OVERVIEW.md](docs/SYSTEM_PIPELINE_OVERVIEW.md)** - **Complete system pipeline, functions, and outcomes** (START HERE for comprehensive understanding)
 - [SECURITY.md](SECURITY.md) - Security features and hardening
 - [docs/CHANGELOG.md](docs/CHANGELOG.md) - Version history
 - [docs/ROADMAP.md](docs/ROADMAP.md) - Feature roadmap (Q1-Q4 2026)
