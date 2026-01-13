@@ -49,7 +49,7 @@ cd $INSTALL_DIR
 
 if [ ! -d ".git" ]; then
     echo "Cloning repository..."
-    git clone https://github.com/SaltProphet/Pi-autopilot.git .
+    git clone git@github.com:SaltProphet/Pi-autopilot.git .
 fi
 
 echo "Creating Python virtual environment..."

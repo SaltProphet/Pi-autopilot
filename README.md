@@ -27,6 +27,20 @@ Cost governor enforces hard limits at every LLM call.
 
 ## 🚀 Quick Start
 
+### Prerequisites
+
+Before installing, ensure you have SSH keys configured for GitHub:
+
+```bash
+# Generate SSH key if you don't have one
+ssh-keygen -t ed25519 -C "your_email@example.com"
+
+# Copy the public key
+cat ~/.ssh/id_ed25519.pub
+
+# Add the key to your GitHub account at: https://github.com/settings/keys
+```
+
 ### Installation (Pi)
 
 ```bash

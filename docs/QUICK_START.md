@@ -14,11 +14,28 @@
 
 ## 🚀 Getting Started
 
+### Prerequisites
+
+Before running the installer, ensure SSH keys are configured for GitHub:
+
+```bash
+# Generate SSH key if needed
+ssh-keygen -t ed25519 -C "your_email@example.com"
+
+# View public key
+cat ~/.ssh/id_ed25519.pub
+
+# Add to GitHub: https://github.com/settings/keys
+
+# Test connection
+ssh -T git@github.com
+```
+
 ### On Your Raspberry Pi
 
 ```bash
 # 1. One-command setup
-sudo bash /opt/pi-autopilot/installer/setup_pi.sh
+sudo bash installer/setup_pi.sh
 
 # 2. Add API keys
 sudo nano /opt/pi-autopilot/.env
