@@ -33,7 +33,7 @@ def _truncate_preserving_boundary(text: str, max_length: int) -> str:
     return candidate[: best_pos + 1]
 
 
-def extract_problem(post_data: dict, llm_client: LLMClient) -> dict:
+def extract_problem(post_data: dict, llm_client: LLMClient, sales_feedback_text: str = None) -> dict:
     sanitizer = InputSanitizer()
     
     prompt_path = os.path.join(os.path.dirname(__file__), "..", "prompts", "problem_extraction.txt")
@@ -57,6 +57,10 @@ Content: {truncated_body}
 """
     
     system_prompt = prompt_template.replace('<<REDDIT_POSTS_AND_COMMENTS>>', reddit_text)
+    
+    # Inject sales feedback if provided
+    if sales_feedback_text:
+        system_prompt = system_prompt + f"\n\nSALES FEEDBACK:\n{sales_feedback_text}\n\nConsider recent sales performance when evaluating this problem. Favor topics similar to products that sold well. Be cautious about topics similar to products with zero sales."
     
     result = llm_client.call_structured(system_prompt, "", max_tokens=1500)
     

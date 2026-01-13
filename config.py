@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     openai_input_token_price: float = 0.03
     openai_output_token_price: float = 0.06
     
+    # Sales feedback configuration
+    zero_sales_suppression_count: int = 5
+    refund_rate_max: float = 0.3
+    sales_lookback_days: int = 30
+    
     class Config:
         env_file = ".env"
         case_sensitive = False

@@ -55,10 +55,7 @@ class LLMClient:
                 max_tokens=max_tokens
             )
         
-        response = self.retry_handler.with_retry(make_api_call, api_type='openai'    ],
-            temperature=0.7,
-            max_tokens=max_tokens
-        )
+        response = self.retry_handler.with_retry(make_api_call, api_type='openai')
         
         actual_input_tokens = response.usage.prompt_tokens
         actual_output_tokens = response.usage.completion_tokens

@@ -183,6 +183,76 @@ class TestGumroadClient:
         result = client.create_product("Product", "Desc", price_cents=2999)
         
         assert result is None
+    
+    @patch('services.gumroad_client.requests')
+    def test_fetch_sales_data_success(self, mock_requests):
+        """Test successful sales data fetching."""
+        from services.gumroad_client import GumroadClient
+        
+        # Setup mock response
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "success": True,
+            "products": [
+                {
+                    "id": "prod1",
+                    "name": "Product 1",
+                    "sales_count": 10,
+                    "sales_usd_cents": 10000,
+                    "view_count": 200,
+                    "refunds_count": 1
+                },
+                {
+                    "id": "prod2",
+                    "name": "Product 2",
+                    "sales_count": 5,
+                    "sales_usd_cents": 5000,
+                    "view_count": 100,
+                    "refunds_count": 0
+                }
+            ]
+        }
+        mock_response.raise_for_status.return_value = None
+        mock_requests.get.return_value = mock_response
+        
+        client = GumroadClient()
+        result = client.fetch_sales_data()
+        
+        assert len(result) == 2
+        assert result[0]["product_id"] == "prod1"
+        assert result[0]["sales_count"] == 10
+        assert result[0]["revenue_cents"] == 10000
+        assert result[1]["product_id"] == "prod2"
+    
+    @patch('services.gumroad_client.requests')
+    def test_fetch_sales_data_no_products(self, mock_requests):
+        """Test sales data fetching with no products."""
+        from services.gumroad_client import GumroadClient
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {"success": True, "products": []}
+        mock_response.raise_for_status.return_value = None
+        mock_requests.get.return_value = mock_response
+        
+        client = GumroadClient()
+        result = client.fetch_sales_data()
+        
+        assert result == []
+    
+    @patch('services.gumroad_client.requests')
+    def test_fetch_sales_data_api_failure(self, mock_requests):
+        """Test sales data fetching when API fails."""
+        from services.gumroad_client import GumroadClient
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {"success": False}
+        mock_response.raise_for_status.return_value = None
+        mock_requests.get.return_value = mock_response
+        
+        client = GumroadClient()
+        result = client.fetch_sales_data()
+        
+        assert result == []
 
 
 @pytest.mark.unit
