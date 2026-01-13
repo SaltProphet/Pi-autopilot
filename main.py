@@ -74,42 +74,106 @@ def run_pipeline():
             sales_ingest_result = sales_feedback.ingest_sales_data()
             if sales_ingest_result["success"]:
                 print(f"Ingested sales data for {sales_ingest_result['products_ingested']} products")
+                audit_logger.log(
+                    action='sales_data_ingested',
+                    post_id=None,
+                    run_id=run_id,
+                    details={
+                        'success': True,
+                        'products_ingested': sales_ingest_result.get('products_ingested', 0),
+                        'timestamp': datetime.now().isoformat()
+                    }
+                )
             else:
                 print("No sales data available or ingestion failed")
+                audit_logger.log(
+                    action='sales_data_ingested',
+                    post_id=None,
+                    run_id=run_id,
+                    details={
+                        'success': False,
+                        'message': sales_ingest_result.get('message', 'No sales data available or ingestion failed'),
+                        'timestamp': datetime.now().isoformat()
+                    }
+                )
         except Exception as e:
             print(f"Sales data ingestion failed: {e}")
-        
-        # Check if publishing should be suppressed
-        suppression_check = sales_feedback.should_suppress_publishing()
-        if suppression_check["suppress"]:
-            print(f"\n=== PUBLISHING SUPPRESSED ===")
-            print(f"Reason: {suppression_check['reason']}")
             audit_logger.log(
-                action='publishing_suppressed',
+                action='sales_data_ingested',
                 post_id=None,
                 run_id=run_id,
-                details={'suppression_reason': suppression_check['reason']}
+                details={
+                    'success': False,
+                    'error': str(e),
+                    'timestamp': datetime.now().isoformat()
+                }
             )
-            return
+        
+        # Check if publishing should be suppressed
+        try:
+            suppression_check = sales_feedback.should_suppress_publishing()
+            if suppression_check["suppress"]:
+                print(f"\n=== PUBLISHING SUPPRESSED ===")
+                print(f"Reason: {suppression_check['reason']}")
+                audit_logger.log(
+                    action='publishing_suppressed',
+                    post_id=None,
+                    run_id=run_id,
+                    details={'suppression_reason': suppression_check['reason']}
+                )
+                return
+        except Exception as e:
+            # Fail safely: on error, allow publishing to continue
+            print(f"Warning: Suppression check failed: {e}. Allowing publishing to continue.")
+            audit_logger.log(
+                action='error_occurred',
+                post_id=None,
+                run_id=run_id,
+                details={'stage': 'suppression_check', 'error': str(e), 'failsafe': 'allowing_publishing'},
+                error_occurred=True
+            )
         
         # Generate sales feedback summary for agent conditioning
-        feedback_summary = sales_feedback.generate_feedback_summary()
-        top_categories = sales_feedback.get_top_performing_categories()
-        zero_sale_categories = sales_feedback.get_zero_sale_categories()
-        
-        sales_feedback_text = f"""
-Recent Performance (last {settings.sales_lookback_days} days):
-- Products published: {feedback_summary['products_published']}
-- Products sold: {feedback_summary['products_sold']}
-- Zero-sale products: {feedback_summary['zero_sale_products']}
-- Total revenue: ${feedback_summary['total_revenue_cents'] / 100:.2f}
-- Average price: ${feedback_summary['avg_price_cents'] / 100:.2f}
-- Refund rate: {feedback_summary['refund_rate']:.1%}
-
-Top-performing categories: {', '.join(top_categories) if top_categories else 'None yet'}
-Zero-sale categories: {', '.join(zero_sale_categories) if zero_sale_categories else 'None'}
-"""
-        print(sales_feedback_text)
+        try:
+            feedback_summary = sales_feedback.generate_feedback_summary()
+            top_categories = sales_feedback.get_top_performing_categories()
+            zero_sale_categories = sales_feedback.get_zero_sale_categories()
+            
+            # Build feedback text with clarity on data availability
+            feedback_lines = [
+                f"Recent Performance (last {settings.sales_lookback_days} days):",
+                f"- Products published: {feedback_summary['products_published']}",
+                f"- Products sold: {feedback_summary['products_sold']}",
+            ]
+            
+            # Add zero-sale info with clarity
+            if feedback_summary.get('products_without_data', 0) > 0:
+                feedback_lines.append(f"- Products without sales data yet: {feedback_summary['products_without_data']}")
+            if feedback_summary['zero_sale_products'] > 0:
+                feedback_lines.append(f"- Products with tracked zero sales: {feedback_summary['zero_sale_products']}")
+            
+            feedback_lines.extend([
+                f"- Total revenue: ${feedback_summary['total_revenue_cents'] / 100:.2f}",
+                f"- Average price: ${feedback_summary['avg_price_cents'] / 100:.2f}",
+                f"- Refund rate: {feedback_summary['refund_rate']:.1%}",
+                "",
+                f"Top-performing categories: {', '.join(top_categories) if top_categories else 'None yet'}",
+                f"Zero-sale categories: {', '.join(zero_sale_categories) if zero_sale_categories else 'None'}",
+            ])
+            
+            sales_feedback_text = "\n".join(feedback_lines)
+            print(sales_feedback_text)
+        except Exception as e:
+            # Fail safely: on error, provide empty sales feedback
+            print(f"Warning: Feedback summary generation failed: {e}. Continuing without sales conditioning.")
+            sales_feedback_text = ""
+            audit_logger.log(
+                action='error_occurred',
+                post_id=None,
+                run_id=run_id,
+                details={'stage': 'feedback_generation', 'error': str(e), 'failsafe': 'empty_feedback'},
+                error_occurred=True
+            )
         
         print("=== REDDIT INGESTION ===")
         ingest_result = ingest_reddit_posts()

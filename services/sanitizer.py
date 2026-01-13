@@ -126,6 +126,42 @@ class InputSanitizer:
         
         return text
     
+    def sanitize_for_llm(self, text: str, max_length: int = 1000) -> str:
+        """Sanitize text for inclusion in LLM prompts.
+        
+        Args:
+            text: Input text (e.g., product names, categories)
+            max_length: Maximum length
+        
+        Returns:
+            Sanitized text safe for LLM prompts
+        """
+        if not text:
+            return ""
+        
+        # Remove control characters
+        text = self._remove_control_chars(text)
+        
+        # Remove common prompt injection patterns
+        # Remove instruction-like patterns that could confuse the LLM
+        injection_patterns = [
+            r'\bignore\s+previous\s+instructions?\b',
+            r'\bignore\s+all\s+previous\s+prompts?\b',
+            r'\bdisregard\s+previous\s+instructions?\b',
+            r'\bnew\s+instructions?\s*:',
+            r'\bsystem\s*:',
+            r'\bassistant\s*:',
+            r'\buser\s*:',
+        ]
+        
+        for pattern in injection_patterns:
+            text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+        
+        # Truncate if too long
+        text = text[:max_length]
+        
+        return text.strip()
+    
     @staticmethod
     def is_safe_url(url: str) -> bool:
         """Check if URL is safe (not javascript: or data:).
