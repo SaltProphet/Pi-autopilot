@@ -250,3 +250,66 @@ class TestStorage:
         assert retrieved['raw_json'] is not None
         raw_data = json.loads(retrieved['raw_json'])
         assert raw_data['id'] == 'json123'
+    
+    def test_save_sales_metrics(self, storage):
+        """Test saving sales metrics."""
+        import time
+        fetched_at = int(time.time())
+        
+        storage.save_sales_metrics(
+            product_id="prod123",
+            product_name="Test Product",
+            sales_count=10,
+            revenue_cents=10000,
+            views=200,
+            refunds=1,
+            fetched_at=fetched_at
+        )
+        
+        # Verify data was saved
+        metrics = storage.get_sales_metrics_since(days=1)
+        assert len(metrics) > 0
+        assert metrics[0]["product_id"] == "prod123"
+        assert metrics[0]["sales_count"] == 10
+        assert metrics[0]["revenue_cents"] == 10000
+    
+    def test_get_sales_metrics_since(self, storage):
+        """Test retrieving sales metrics from a time period."""
+        import time
+        current_time = int(time.time())
+        old_time = current_time - (40 * 86400)  # 40 days ago
+        
+        # Add recent and old metrics
+        storage.save_sales_metrics("prod1", "Recent", 5, 5000, 100, 0, current_time)
+        storage.save_sales_metrics("prod2", "Old", 3, 3000, 50, 0, old_time)
+        
+        # Get last 30 days
+        recent_metrics = storage.get_sales_metrics_since(days=30)
+        assert len(recent_metrics) == 1
+        assert recent_metrics[0]["product_name"] == "Recent"
+    
+    def test_get_recent_uploaded_products(self, storage):
+        """Test retrieving recently uploaded products."""
+        import time
+        current_time = int(time.time())
+        
+        # Add posts and mark as uploaded
+        for i in range(3):
+            post_data = {
+                'id': f'upload{i}',
+                'title': f'Upload Test {i}',
+                'body': 'Content',
+                'timestamp': current_time - (i * 1000),
+                'subreddit': 'test',
+                'author': 'testuser',
+                'score': 50,
+                'url': f'https://reddit.com/upload{i}',
+                'num_comments': 2
+            }
+            storage.save_post(post_data)
+            storage.log_pipeline_run(f'upload{i}', 'gumroad_upload', 'completed', '/path/to/artifact')
+        
+        # Get recent uploads
+        recent_uploads = storage.get_recent_uploaded_products(limit=10)
+        assert len(recent_uploads) == 3
+        assert recent_uploads[0]['post_id'] == 'upload0'  # Most recent first

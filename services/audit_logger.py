@@ -24,6 +24,8 @@ class AuditLogger:
         'post_discarded': 'Post marked as discarded',
         'cost_limit_exceeded': 'Cost limit reached',
         'error_occurred': 'Error during processing',
+        'publishing_suppressed': 'Publishing suppressed due to performance',
+        'sales_data_ingested': 'Sales data fetched from Gumroad',
     }
     
     def __init__(self):

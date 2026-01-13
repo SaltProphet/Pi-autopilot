@@ -16,6 +16,7 @@ from services.llm_client import LLMClient
 from services.error_handler import ErrorHandler
 from services.audit_logger import AuditLogger
 from services.backup_manager import BackupManager
+from services.sales_feedback import SalesFeedback
 from config import settings
 
 
@@ -56,6 +57,7 @@ def run_pipeline():
     error_handler = ErrorHandler()
     audit_logger = AuditLogger(settings.database_path)
     backup_manager = BackupManager(settings.database_path)
+    sales_feedback = SalesFeedback(storage)
     
     # Perform daily backup at pipeline start
     print("=== BACKUP & MAINTENANCE ===")
@@ -66,6 +68,49 @@ def run_pipeline():
     run_id = f"run_{int(datetime.now().timestamp())}"
     
     try:
+        # Ingest sales data at pipeline start
+        print("=== SALES DATA INGESTION ===")
+        try:
+            sales_ingest_result = sales_feedback.ingest_sales_data()
+            if sales_ingest_result["success"]:
+                print(f"Ingested sales data for {sales_ingest_result['products_ingested']} products")
+            else:
+                print("No sales data available or ingestion failed")
+        except Exception as e:
+            print(f"Sales data ingestion failed: {e}")
+        
+        # Check if publishing should be suppressed
+        suppression_check = sales_feedback.should_suppress_publishing()
+        if suppression_check["suppress"]:
+            print(f"\n=== PUBLISHING SUPPRESSED ===")
+            print(f"Reason: {suppression_check['reason']}")
+            audit_logger.log(
+                action='publishing_suppressed',
+                post_id=None,
+                run_id=run_id,
+                details={'suppression_reason': suppression_check['reason']}
+            )
+            return
+        
+        # Generate sales feedback summary for agent conditioning
+        feedback_summary = sales_feedback.generate_feedback_summary()
+        top_categories = sales_feedback.get_top_performing_categories()
+        zero_sale_categories = sales_feedback.get_zero_sale_categories()
+        
+        sales_feedback_text = f"""
+Recent Performance (last {settings.sales_lookback_days} days):
+- Products published: {feedback_summary['products_published']}
+- Products sold: {feedback_summary['products_sold']}
+- Zero-sale products: {feedback_summary['zero_sale_products']}
+- Total revenue: ${feedback_summary['total_revenue_cents'] / 100:.2f}
+- Average price: ${feedback_summary['avg_price_cents'] / 100:.2f}
+- Refund rate: {feedback_summary['refund_rate']:.1%}
+
+Top-performing categories: {', '.join(top_categories) if top_categories else 'None yet'}
+Zero-sale categories: {', '.join(zero_sale_categories) if zero_sale_categories else 'None'}
+"""
+        print(sales_feedback_text)
+        
         print("=== REDDIT INGESTION ===")
         ingest_result = ingest_reddit_posts()
         print(f"Saved {ingest_result['total_saved']} new posts")
@@ -90,7 +135,7 @@ def run_pipeline():
             
             try:
                 print("Stage: PROBLEM_EXTRACTION")
-                problem_data = extract_problem(post, llm_client)
+                problem_data = extract_problem(post, llm_client, sales_feedback_text)
                 problem_path = save_artifact(post_id, "problem", problem_data)
                 
                 if problem_data.get("discard", True):
@@ -117,7 +162,7 @@ def run_pipeline():
                 print(f"Problem: {problem_data['problem_summary'][:60]}...")
                 
                 print("Stage: SPEC_GENERATION")
-                spec_data = generate_spec(problem_data, llm_client)
+                spec_data = generate_spec(problem_data, llm_client, sales_feedback_text)
                 spec_path = save_artifact(post_id, "spec", spec_data)
                 
                 if not spec_data.get("build", False):
