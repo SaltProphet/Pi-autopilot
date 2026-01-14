@@ -1,7 +1,6 @@
 """Reddit data ingestion agent."""
 from typing import List, Dict, Any
 from agents.base_ingest import BaseIngestAgent
-from services.reddit_client import RedditClient
 
 
 class RedditIngestAgent(BaseIngestAgent):
@@ -20,6 +19,9 @@ class RedditIngestAgent(BaseIngestAgent):
         Raises:
             Exception: If Reddit API is unavailable or credentials are invalid
         """
+        # Import here to avoid circular dependency and config loading at module level
+        from services.reddit_client import RedditClient
+        
         reddit_client = RedditClient()
         subreddits = [s.strip() for s in self.settings.reddit_subreddits.split(',')]
         

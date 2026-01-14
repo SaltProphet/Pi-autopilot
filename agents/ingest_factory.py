@@ -1,10 +1,6 @@
 """Factory for creating and managing data ingestion agents."""
 from typing import List
 from agents.base_ingest import BaseIngestAgent
-from agents.reddit_ingest import RedditIngestAgent
-from agents.hackernews_ingest import HackerNewsIngestAgent
-from agents.rss_ingest import RSSIngestAgent
-from agents.file_ingest import FileIngestAgent
 
 
 class IngestFactory:
@@ -67,6 +63,8 @@ class IngestFactory:
             print("Warning: Reddit source enabled but credentials not configured. Skipping.")
             return None
         
+        # Import here to avoid loading config at module level
+        from agents.reddit_ingest import RedditIngestAgent
         return RedditIngestAgent(self.settings)
     
     def _create_hackernews_agent(self) -> BaseIngestAgent:
@@ -75,6 +73,7 @@ class IngestFactory:
         Returns:
             HackerNewsIngestAgent
         """
+        from agents.hackernews_ingest import HackerNewsIngestAgent
         return HackerNewsIngestAgent(self.settings)
     
     def _create_rss_agent(self) -> BaseIngestAgent:
@@ -87,6 +86,7 @@ class IngestFactory:
             print("Warning: RSS source enabled but no feed URLs configured. Skipping.")
             return None
         
+        from agents.rss_ingest import RSSIngestAgent
         return RSSIngestAgent(self.settings)
     
     def _create_file_agent(self) -> BaseIngestAgent:
@@ -99,4 +99,5 @@ class IngestFactory:
             print("Warning: File source enabled but no file paths configured. Skipping.")
             return None
         
+        from agents.file_ingest import FileIngestAgent
         return FileIngestAgent(self.settings)
