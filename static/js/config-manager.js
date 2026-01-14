@@ -258,7 +258,7 @@ async function testRedditCredentials() {
     testBtn.textContent = 'Testing...';
     statusEl.textContent = '';
     
-    try:
+    try {
         const response = await fetch('/api/config/test', {
             method: 'POST',
             headers: {
