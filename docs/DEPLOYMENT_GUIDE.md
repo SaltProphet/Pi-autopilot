@@ -67,11 +67,59 @@ cd Pi-autopilot
 sudo bash installer/setup_pi.sh
 
 # Edit configuration
+# IMPORTANT: System starts in DRY_RUN=true mode (no real Gumroad uploads)
+# Test everything first, then set DRY_RUN=false when ready
 sudo nano /opt/pi-autopilot/.env
 
 # Verify installation
 sudo systemctl status pi-autopilot.timer
 sudo systemctl status pi-autopilot-dashboard.service
+```
+
+---
+
+## 🔧 Initial Testing
+
+### Test in Dry Run Mode (Recommended)
+
+The system installs with `DRY_RUN=true` by default, which is **strongly recommended** for initial testing:
+
+```bash
+# 1. Verify dry run is enabled
+grep DRY_RUN /opt/pi-autopilot/.env
+# Should show: DRY_RUN=true
+
+# 2. Run the pipeline once manually
+sudo systemctl start pi-autopilot.service
+
+# 3. Watch the logs
+journalctl -fu pi-autopilot.service
+
+# 4. Look for "[DRY RUN]" in output
+# Example: "[DRY RUN] Would create Gumroad product: 'Product Name' at $9.99"
+
+# 5. Check artifacts were created
+ls /opt/pi-autopilot/data/artifacts/
+
+# 6. Verify in dashboard
+# Visit http://<pi-ip>:8000 - should show completed posts with dry_run flag
+```
+
+### Enable Real Uploads
+
+Only after verifying everything works in dry run mode:
+
+```bash
+# 1. Edit .env
+sudo nano /opt/pi-autopilot/.env
+# Change: DRY_RUN=false
+
+# 2. Restart timer to pick up new config
+sudo systemctl restart pi-autopilot.timer
+
+# 3. Next run will make real Gumroad uploads
+# Monitor logs carefully!
+journalctl -fu pi-autopilot.service
 ```
 
 ---

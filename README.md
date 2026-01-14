@@ -202,6 +202,25 @@ When enabled:
 - No Gumroad uploads
 - Database and artifacts preserved
 
+### Dry Run Mode
+
+Test the system safely without making real Gumroad uploads:
+
+```bash
+# In .env (enabled by default on installation)
+DRY_RUN=true
+```
+
+When enabled:
+- Pipeline runs normally through all stages
+- Reddit posts are processed
+- LLM calls generate content
+- Gumroad uploads are **simulated** (no real products created)
+- All artifacts and logs are created
+- Console shows "[DRY RUN]" prefix for uploads
+
+**To enable real uploads:** Set `DRY_RUN=false` in `.env`
+
 ### Token Pricing
 
 Configure per-token costs:

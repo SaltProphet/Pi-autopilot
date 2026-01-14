@@ -44,6 +44,11 @@ sudo bash installer/setup_pi.sh
 # 3. Add API keys
 sudo nano /opt/pi-autopilot/.env
 
+# IMPORTANT: The system starts in DRY RUN mode by default
+# This means no real Gumroad uploads will be made
+# Review the logs and artifacts to verify everything works
+# Then set DRY_RUN=false when ready for production
+
 # 4. Start everything
 sudo systemctl start pi-autopilot.timer
 sudo systemctl start pi-autopilot-dashboard.service
@@ -95,6 +100,26 @@ Shows:
 
 At 50% → 🟡 Yellow warning
 At 80% → 🔴 Red alert
+```
+
+### Important: Dry Run Mode
+
+**By default, the system runs in DRY RUN mode** to prevent accidental product uploads during testing.
+
+When `DRY_RUN=true` (default):
+- ✅ Reddit posts are fetched and processed
+- ✅ Problems are extracted
+- ✅ Product specs are generated
+- ✅ Content is created
+- ⚠️ Gumroad uploads are **simulated** (no real products created)
+- ✅ All logs and artifacts are saved
+- Console output shows: `[DRY RUN] Product uploaded`
+
+**To enable real uploads:**
+```bash
+sudo nano /opt/pi-autopilot/.env
+# Change: DRY_RUN=false
+sudo systemctl restart pi-autopilot.timer
 ```
 
 ### View Cost Breakdown
