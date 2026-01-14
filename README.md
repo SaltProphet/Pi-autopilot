@@ -31,27 +31,68 @@ Cost governor enforces hard limits at every LLM call.
 
 - **Python 3.8+** - Required for running the pipeline
 - **Git** - For cloning the repository
-- **SSH keys** (for Pi installation) - For GitHub access
+- **SSH keys configured with GitHub** (for Pi installation) - Required for automated installation
 
-#### Setting up SSH Keys (Pi Installation)
+### Setting up SSH Keys (Required for Pi Installation)
 
-Before installing on Raspberry Pi, ensure you have SSH keys configured:
+**IMPORTANT**: Before running the automated installer on Raspberry Pi, you MUST configure SSH keys for GitHub authentication.
+
+#### Step 1: Check if you already have SSH keys
 
 ```bash
-# Generate SSH key if you don't have one
+ls -la ~/.ssh/id_*.pub
+```
+
+If you see files like `id_rsa.pub` or `id_ed25519.pub`, you already have SSH keys. Skip to Step 3.
+
+#### Step 2: Generate SSH keys (if you don't have them)
+
+```bash
+# Generate a new SSH key (use your GitHub email)
 ssh-keygen -t ed25519 -C "your_email@example.com"
 
-# Copy the public key
-cat ~/.ssh/id_ed25519.pub
-
-# Add the key to your GitHub account at: https://github.com/settings/keys
+# When prompted:
+# - Press Enter to accept the default file location
+# - Enter a passphrase (optional but recommended)
 ```
+
+#### Step 3: Add your SSH key to GitHub
+
+```bash
+# Display your public key
+cat ~/.ssh/id_ed25519.pub
+# (or cat ~/.ssh/id_rsa.pub if you have an RSA key)
+
+# Copy the entire output
+```
+
+Then:
+1. Go to GitHub → Settings → SSH and GPG keys: https://github.com/settings/keys
+2. Click "New SSH key"
+3. Give it a title (e.g., "Raspberry Pi")
+4. Paste your public key
+5. Click "Add SSH key"
+
+#### Step 4: Test your SSH connection
+
+```bash
+ssh -T git@github.com
+```
+
+You should see:
+```
+Hi YourUsername! You've successfully authenticated, but GitHub does not provide shell access.
+```
+
+If you see this message, you're ready to run the installer!
 
 ### Installation Options
 
-#### Option 1: Automated Installation (Raspberry Pi)
+#### Option 1: Automated Installation with SSH (Raspberry Pi - Recommended)
 
-**Recommended for production deployment on Raspberry Pi**
+**Best for**: Production deployment on Raspberry Pi with SSH keys already configured
+
+**Prerequisites**: SSH keys must be configured (see above)
 
 ```bash
 # Clone the repository
@@ -62,7 +103,29 @@ cd Pi-autopilot
 sudo bash installer/setup_pi.sh
 ```
 
-The installer will:
+#### Option 1b: Automated Installation with HTTPS (Raspberry Pi - Alternative)
+
+**Best for**: Users who prefer Personal Access Token (PAT) over SSH keys
+
+**Prerequisites**: GitHub Personal Access Token with 'repo' scope
+
+To create a PAT:
+1. Go to: https://github.com/settings/tokens
+2. Click "Generate new token (classic)"
+3. Give it a name (e.g., "Pi-Autopilot")
+4. Select scope: **repo** (Full control of private repositories)
+5. Click "Generate token" and copy it (you won't see it again!)
+
+```bash
+# Clone the repository (you can use HTTPS here too with your PAT)
+git clone https://github.com/SaltProphet/Pi-autopilot.git
+cd Pi-autopilot
+
+# Run the HTTPS installer (will prompt for PAT)
+sudo bash installer/setup_with_https.sh
+```
+
+**What the automated installers do:**
 - Install system dependencies (Python 3, pip, venv, git)
 - Create installation at `/opt/pi-autopilot`
 - Set up Python virtual environment
@@ -72,7 +135,7 @@ The installer will:
 - Set up timer for hourly pipeline runs
 - Configure daily database backups
 
-Then:
+**After installation:**
 1. Edit `/opt/pi-autopilot/.env` with your API keys
 2. Test the pipeline: `sudo systemctl start pi-autopilot.service`
 3. Access dashboard: `http://<pi-ip>:8000`
@@ -680,6 +743,77 @@ Posts are rejected at various stages:
 - id, run_id, tokens_sent, tokens_received, usd_cost, timestamp, model, abort_reason
 
 ## Troubleshooting
+
+### Installation Issues
+
+**SSH Authentication Failed During Installation:**
+
+If you see errors like:
+```
+remote: Invalid username or token. Password authentication is not supported for Git operations.
+fatal: Authentication failed for 'https://github.com/SaltProphet/Pi-autopilot.git/'
+```
+
+Or:
+```
+ERROR: SSH authentication to GitHub failed
+```
+
+**Solution 1: Set up SSH keys properly**
+1. Check if you have SSH keys:
+   ```bash
+   ls -la ~/.ssh/id_*.pub
+   ```
+
+2. If no keys exist, generate one:
+   ```bash
+   ssh-keygen -t ed25519 -C "your_email@example.com"
+   ```
+
+3. Add your public key to GitHub:
+   ```bash
+   cat ~/.ssh/id_ed25519.pub
+   ```
+   Copy the output and add it at: https://github.com/settings/keys
+
+4. Test the connection:
+   ```bash
+   ssh -T git@github.com
+   ```
+   You should see: "Hi YourUsername! You've successfully authenticated..."
+
+5. Re-run the installer:
+   ```bash
+   sudo bash installer/setup_pi.sh
+   ```
+
+**Solution 2: Use HTTPS installer with Personal Access Token**
+
+If SSH is not working or you prefer using PAT:
+1. Create a Personal Access Token at: https://github.com/settings/tokens
+2. Select scope: **repo**
+3. Run the HTTPS installer:
+   ```bash
+   sudo bash installer/setup_with_https.sh
+   ```
+
+**"Could not detect the actual user" error:**
+- Don't run the script directly as root
+- Always use: `sudo bash installer/setup_pi.sh` (not `sudo su` then run script)
+
+**SSH keys exist but authentication still fails:**
+- Verify the key is added to your GitHub account: https://github.com/settings/keys
+- Check SSH agent is running:
+  ```bash
+  eval "$(ssh-agent -s)"
+  ssh-add ~/.ssh/id_ed25519
+  ```
+- Test manually:
+  ```bash
+  ssh -Tv git@github.com
+  ```
+
+### Runtime Issues
 
 **No posts ingested:**
 - Check Reddit credentials in `.env`

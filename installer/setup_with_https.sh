@@ -18,13 +18,16 @@ cleanup() {
 # Run cleanup on any error
 trap 'cleanup' ERR
 
-echo "Pi-Autopilot Setup Script"
-echo "========================="
+echo "Pi-Autopilot Setup Script (HTTPS Mode)"
+echo "======================================="
+echo ""
+echo "This installer uses HTTPS with a Personal Access Token (PAT)"
+echo "instead of SSH keys."
 echo ""
 
 if [ "$EUID" -ne 0 ]; then 
     echo "ERROR: Please run with sudo"
-    echo "Usage: sudo bash installer/setup_pi.sh"
+    echo "Usage: sudo bash installer/setup_with_https.sh"
     exit 1
 fi
 
@@ -38,16 +41,33 @@ fi
 if [ -z "$REAL_USER" ] || [ "$REAL_USER" = "root" ]; then
     echo "ERROR: Could not detect the actual user."
     echo "Please run this script with sudo as a regular user, not as root directly."
-    echo "Example: sudo bash installer/setup_pi.sh"
+    echo "Example: sudo bash installer/setup_with_https.sh"
     exit 1
 fi
 
-REAL_USER_HOME=$(eval echo "~$REAL_USER")
-
 echo "Detected user: $REAL_USER"
-echo "User home directory: $REAL_USER_HOME"
 echo ""
 
+# Prompt for GitHub PAT
+echo "You need a GitHub Personal Access Token (PAT) to clone the repository."
+echo ""
+echo "If you don't have one:"
+echo "  1. Go to: https://github.com/settings/tokens"
+echo "  2. Click 'Generate new token (classic)'"
+echo "  3. Give it a name (e.g., 'Pi-Autopilot')"
+echo "  4. Select scope: 'repo' (Full control of private repositories)"
+echo "  5. Click 'Generate token'"
+echo "  6. Copy the token (you won't be able to see it again!)"
+echo ""
+read -sp "Enter your GitHub Personal Access Token: " GITHUB_TOKEN
+echo ""
+
+if [ -z "$GITHUB_TOKEN" ]; then
+    echo "ERROR: No token provided"
+    exit 1
+fi
+
+echo ""
 echo "Installing system dependencies..."
 apt-get update
 apt-get install -y python3 python3-pip python3-venv git
@@ -57,92 +77,28 @@ mkdir -p $INSTALL_DIR
 cd $INSTALL_DIR
 
 if [ ! -d ".git" ]; then
-    echo "Validating SSH configuration..."
     echo ""
+    echo "Cloning repository via HTTPS..."
     
-    # Check if SSH key exists
-    SSH_KEY_FOUND=false
-    for key_type in id_rsa id_ed25519 id_ecdsa id_dsa; do
-        if [ -f "$REAL_USER_HOME/.ssh/$key_type" ]; then
-            SSH_KEY_FOUND=true
-            echo "✓ Found SSH key: $REAL_USER_HOME/.ssh/$key_type"
-            break
-        fi
-    done
-    
-    if [ "$SSH_KEY_FOUND" = false ]; then
-        echo "ERROR: No SSH keys found for user $REAL_USER"
-        echo ""
-        echo "SSH keys are required to clone the repository."
-        echo ""
-        echo "To set up SSH keys:"
-        echo "  1. Generate an SSH key:"
-        echo "     ssh-keygen -t ed25519 -C \"your_email@example.com\""
-        echo ""
-        echo "  2. Add the public key to your GitHub account:"
-        echo "     cat ~/.ssh/id_ed25519.pub"
-        echo "     Then go to: https://github.com/settings/keys"
-        echo ""
-        echo "  3. Re-run this installer"
-        echo ""
-        echo "For detailed instructions, see:"
-        echo "  https://docs.github.com/en/authentication/connecting-to-github-with-ssh"
-        echo ""
-        echo "Alternative: Use HTTPS with Personal Access Token (PAT)"
-        echo "  Run: sudo bash installer/setup_with_https.sh"
-        exit 1
-    fi
-    
-    # Test SSH connection to GitHub
-    echo ""
-    echo "Testing SSH connection to GitHub..."
-    if sudo -u "$REAL_USER" ssh -T -o StrictHostKeyChecking=no -o BatchMode=yes git@github.com 2>&1 | grep -q "successfully authenticated"; then
-        echo "✓ SSH connection to GitHub successful"
-    else
-        echo "ERROR: SSH authentication to GitHub failed"
-        echo ""
-        echo "Your SSH key exists but GitHub authentication failed."
-        echo ""
-        echo "Possible causes:"
-        echo "  1. SSH key not added to your GitHub account"
-        echo "  2. SSH key has a passphrase and ssh-agent is not running"
-        echo "  3. Wrong SSH key is being used"
-        echo ""
-        echo "To fix this:"
-        echo "  1. Copy your PUBLIC key:"
-        echo "     cat $REAL_USER_HOME/.ssh/id_ed25519.pub"
-        echo "     (or cat $REAL_USER_HOME/.ssh/id_rsa.pub)"
-        echo ""
-        echo "  2. Add it to GitHub at: https://github.com/settings/keys"
-        echo ""
-        echo "  3. Test the connection manually:"
-        echo "     ssh -T git@github.com"
-        echo ""
-        echo "  4. Re-run this installer"
-        echo ""
-        echo "For help, see:"
-        echo "  https://docs.github.com/en/authentication/connecting-to-github-with-ssh"
-        exit 1
-    fi
-    
-    echo ""
-    echo "Cloning repository via SSH..."
-    # Clone as the actual user to use their SSH keys
-    sudo -u "$REAL_USER" git clone git@github.com:SaltProphet/Pi-autopilot.git .
-    
-    if [ $? -ne 0 ]; then
+    # Clone using HTTPS with PAT
+    if ! git clone https://${GITHUB_TOKEN}@github.com/SaltProphet/Pi-autopilot.git . 2>/dev/null; then
         echo ""
         echo "ERROR: Failed to clone repository"
         echo ""
-        echo "This usually happens if:"
+        echo "Possible causes:"
+        echo "  - Invalid or expired Personal Access Token"
+        echo "  - Token doesn't have 'repo' scope"
         echo "  - You don't have access to the repository"
         echo "  - Network connectivity issues"
-        echo "  - SSH key permissions are wrong"
         echo ""
-        echo "Try cloning manually to diagnose:"
-        echo "  git clone git@github.com:SaltProphet/Pi-autopilot.git /tmp/test-clone"
+        echo "To fix:"
+        echo "  1. Verify your token at: https://github.com/settings/tokens"
+        echo "  2. Ensure it has 'repo' scope"
+        echo "  3. Try the token manually: git clone https://TOKEN@github.com/SaltProphet/Pi-autopilot.git"
         exit 1
     fi
+    
+    echo "✓ Repository cloned successfully"
 fi
 
 echo "Creating Python virtual environment..."
