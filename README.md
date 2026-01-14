@@ -29,11 +29,17 @@ Cost governor enforces hard limits at every LLM call.
 
 ### Prerequisites
 
-Before installing, ensure you have SSH keys configured for GitHub:
+- **Python 3.8+** - Required for running the pipeline
+- **Git** - For cloning the repository
+- **SSH keys** (for Pi installation) - For GitHub access
+
+#### Setting up SSH Keys (Pi Installation)
+
+Before installing on Raspberry Pi, ensure you have SSH keys configured:
 
 ```bash
-# Generate SSH key if you don't have one (replace with your GitHub email)
-ssh-keygen -t ed25519 -C "<your_email@example.com>"
+# Generate SSH key if you don't have one
+ssh-keygen -t ed25519 -C "your_email@example.com"
 
 # Copy the public key
 cat ~/.ssh/id_ed25519.pub
@@ -41,21 +47,219 @@ cat ~/.ssh/id_ed25519.pub
 # Add the key to your GitHub account at: https://github.com/settings/keys
 ```
 
-### Installation (Pi)
+### Installation Options
+
+#### Option 1: Automated Installation (Raspberry Pi)
+
+**Recommended for production deployment on Raspberry Pi**
 
 ```bash
 # Clone the repository
 git clone git@github.com:SaltProphet/Pi-autopilot.git
 cd Pi-autopilot
 
-# Run the installer
+# Run the automated installer (requires sudo)
 sudo bash installer/setup_pi.sh
 ```
 
+The installer will:
+- Install system dependencies (Python 3, pip, venv, git)
+- Create installation at `/opt/pi-autopilot`
+- Set up Python virtual environment
+- Install all Python dependencies
+- Create data directories with proper permissions
+- Configure systemd services (pipeline + dashboard)
+- Set up timer for hourly pipeline runs
+- Configure daily database backups
+
 Then:
-1. Edit `/opt/pi-autopilot/.env` with API keys
-2. Access dashboard: `http://<pi-ip>:8000`
-3. Check timer: `systemctl list-timers pi-autopilot.timer`
+1. Edit `/opt/pi-autopilot/.env` with your API keys
+2. Test the pipeline: `sudo systemctl start pi-autopilot.service`
+3. Access dashboard: `http://<pi-ip>:8000`
+4. Check timer status: `systemctl list-timers pi-autopilot.timer`
+
+#### Option 2: Manual Installation (Development/Local)
+
+**Recommended for development, testing, or non-Pi systems**
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/SaltProphet/Pi-autopilot.git
+cd Pi-autopilot
+
+# 2. Create a Python virtual environment
+python3 -m venv venv
+
+# 3. Activate the virtual environment
+# On Linux/Mac:
+source venv/bin/activate
+# On Windows:
+# venv\Scripts\activate
+
+# 4. Upgrade pip
+pip install --upgrade pip
+
+# 5. Install dependencies
+pip install -r requirements.txt
+
+# 6. Create data directories
+mkdir -p data/artifacts
+
+# 7. Configure environment
+cp .env.example .env
+# Edit .env with your API keys (see Configuration section)
+
+# 8. Run the pipeline manually
+python main.py
+
+# 9. (Optional) Start the dashboard
+python dashboard.py
+# Access at http://localhost:8000
+```
+
+### Essential Commands
+
+#### Pipeline Management
+
+```bash
+# Run pipeline once (manual)
+python main.py
+
+# Run with virtual environment (if not activated)
+./venv/bin/python main.py
+
+# Run in dry-run mode (no real Gumroad uploads)
+# Set DRY_RUN=true in .env first
+python main.py
+```
+
+#### Virtual Environment
+
+```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate          # Linux/Mac
+venv\Scripts\activate              # Windows
+
+# Deactivate virtual environment
+deactivate
+
+# Install/update dependencies
+pip install -r requirements.txt
+
+# Upgrade specific package
+pip install --upgrade openai
+```
+
+#### Dashboard
+
+```bash
+# Start dashboard (development)
+python dashboard.py
+
+# Start with specific host/port
+python dashboard.py --host 0.0.0.0 --port 8000
+
+# Access dashboard
+# Local: http://localhost:8000
+# Remote: http://<your-ip>:8000
+```
+
+#### Systemd Service Management (Pi Installation)
+
+```bash
+# View service status
+systemctl status pi-autopilot.service
+systemctl status pi-autopilot-dashboard.service
+
+# Start/stop services
+sudo systemctl start pi-autopilot.service
+sudo systemctl stop pi-autopilot.service
+sudo systemctl restart pi-autopilot-dashboard.service
+
+# Enable/disable automatic startup
+sudo systemctl enable pi-autopilot.timer
+sudo systemctl disable pi-autopilot.timer
+
+# View logs (follow mode)
+journalctl -fu pi-autopilot.service
+journalctl -fu pi-autopilot-dashboard.service
+
+# View recent logs
+journalctl -u pi-autopilot.service -n 100
+
+# Check timer schedule
+systemctl list-timers pi-autopilot.timer
+
+# Manually trigger pipeline
+sudo systemctl start pi-autopilot.service
+
+# Reload systemd after config changes
+sudo systemctl daemon-reload
+```
+
+#### Database Management
+
+```bash
+# View database
+sqlite3 data/pipeline.db
+
+# Check lifetime cost
+sqlite3 data/pipeline.db "SELECT SUM(usd_cost) FROM cost_tracking;"
+
+# List recent pipeline runs
+sqlite3 data/pipeline.db "SELECT * FROM pipeline_runs ORDER BY created_at DESC LIMIT 10;"
+
+# Count posts by status
+sqlite3 data/pipeline.db "SELECT status, COUNT(*) FROM pipeline_runs GROUP BY status;"
+
+# Reset cost tracking (use with caution)
+sqlite3 data/pipeline.db "DELETE FROM cost_tracking;"
+```
+
+#### Testing
+
+```bash
+# Run all tests
+SKIP_CONFIG_VALIDATION=1 pytest tests/
+
+# Run specific test file
+SKIP_CONFIG_VALIDATION=1 pytest tests/test_storage.py -v
+
+# Run with coverage
+SKIP_CONFIG_VALIDATION=1 pytest tests/ --cov=services --cov=agents
+
+# Run only unit tests
+SKIP_CONFIG_VALIDATION=1 pytest tests/ -m unit
+```
+
+#### Troubleshooting
+
+```bash
+# Check Python version
+python3 --version
+
+# Verify virtual environment is activated
+which python        # Should show path to venv/bin/python
+
+# List installed packages
+pip list
+
+# Check for missing dependencies
+pip check
+
+# View environment variables
+cat .env
+
+# Check file permissions
+ls -la .env data/
+
+# Test API connectivity
+python -c "from services.reddit_client import RedditClient; print('Reddit OK')"
+python -c "from openai import OpenAI; print('OpenAI OK')"
+```
 
 ### Access Dashboard
 
