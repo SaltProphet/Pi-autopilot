@@ -102,18 +102,19 @@ if [ ! -d ".git" ]; then
     
     # Use git credential helper to securely handle the token
     # Configure credential helper with a short timeout
+    # Note: Using --global since repo doesn't exist yet, will be used for this clone only
     git config --global credential.helper 'cache --timeout=300'
     
     # Set up credentials using git credential approve (avoids command line exposure)
-    echo "protocol=https
-host=github.com
-username=$GITHUB_USERNAME
-password=$GITHUB_TOKEN" | git credential approve
+    # Using printf instead of echo for better security
+    printf 'protocol=https\nhost=github.com\nusername=%s\npassword=%s\n' "$GITHUB_USERNAME" "$GITHUB_TOKEN" | git credential approve
     
     # Now clone without the token in the URL
     if ! git clone https://github.com/SaltProphet/Pi-autopilot.git . 2>&1; then
         # Clear the credential cache on failure
         git credential-cache exit 2>/dev/null || true
+        # Reset global credential helper
+        git config --global --unset credential.helper 2>/dev/null || true
         # Clear credentials from memory
         unset GITHUB_TOKEN
         unset GITHUB_USERNAME
@@ -136,6 +137,10 @@ password=$GITHUB_TOKEN" | git credential approve
     
     # Clear the credential cache after successful clone
     git credential-cache exit 2>/dev/null || true
+    
+    # Reset global credential helper to avoid affecting user's git config
+    # (Only needed if user had no credential helper set before)
+    git config --global --unset credential.helper 2>/dev/null || true
     
     # Clear credentials from memory for security
     unset GITHUB_TOKEN
