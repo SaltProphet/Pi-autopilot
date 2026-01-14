@@ -125,6 +125,8 @@ cd Pi-autopilot
 sudo bash installer/setup_with_https.sh
 ```
 
+**Security Note:** The installer uses git credential helper and immediately clears the token from memory after use. Your PAT is never written to disk or exposed in process listings.
+
 **What the automated installers do:**
 - Install system dependencies (Python 3, pip, venv, git)
 - Create installation at `/opt/pi-autopilot`

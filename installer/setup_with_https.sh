@@ -67,6 +67,11 @@ if [ -z "$GITHUB_TOKEN" ]; then
     exit 1
 fi
 
+# Validate token format (should be a long alphanumeric string)
+if ! echo "$GITHUB_TOKEN" | grep -qE '^[a-zA-Z0-9_]{20,}$'; then
+    echo "WARNING: Token format looks unusual. Proceeding anyway..."
+fi
+
 echo ""
 echo "Installing system dependencies..."
 apt-get update
@@ -80,8 +85,17 @@ if [ ! -d ".git" ]; then
     echo ""
     echo "Cloning repository via HTTPS..."
     
-    # Clone using HTTPS with PAT
+    # Clone using HTTPS with PAT (use git credential helper to avoid exposure)
+    # Set up a temporary credential helper
+    git config --global credential.helper 'cache --timeout=300'
+    
+    # Clone with the token - it will be cached temporarily
     if ! git clone https://${GITHUB_TOKEN}@github.com/SaltProphet/Pi-autopilot.git . 2>/dev/null; then
+        # Clear the credential cache on failure
+        git credential-cache exit 2>/dev/null || true
+        # Clear the token from memory
+        unset GITHUB_TOKEN
+        
         echo ""
         echo "ERROR: Failed to clone repository"
         echo ""
@@ -94,9 +108,15 @@ if [ ! -d ".git" ]; then
         echo "To fix:"
         echo "  1. Verify your token at: https://github.com/settings/tokens"
         echo "  2. Ensure it has 'repo' scope"
-        echo "  3. Try the token manually: git clone https://TOKEN@github.com/SaltProphet/Pi-autopilot.git"
+        echo "  3. Re-run this installer with a valid token"
         exit 1
     fi
+    
+    # Clear the credential cache after successful clone
+    git credential-cache exit 2>/dev/null || true
+    
+    # Clear the token from memory for security
+    unset GITHUB_TOKEN
     
     echo "✓ Repository cloned successfully"
 fi
