@@ -71,9 +71,44 @@ Real-time monitoring of:
 - 📍 Active posts being processed
 - 📋 Recent activity feed
 
+## 🔐 Configuration Management
+
+Pi-Autopilot includes a web-based configuration interface for managing API keys and settings.
+
+### Accessing the Configuration UI
+
+```bash
+# Start the dashboard
+python dashboard.py
+
+# Navigate to:
+http://localhost:8000/config
+```
+
+### Security Best Practices
+
+1. **HTTPS or Localhost Only**: Only access the config UI over HTTPS or from localhost
+2. **Password Protection** (optional): Set `DASHBOARD_PASSWORD` in `.env` to require authentication
+3. **IP Whitelisting** (optional): Set `DASHBOARD_ALLOWED_IPS` to restrict access
+4. **File Permissions**: The `.env` file is automatically secured with 0o600 permissions
+
+### Features
+
+- ✅ Secure API key input with masked display
+- ✅ Test API keys before saving
+- ✅ Toggle services on/off without deleting keys
+- ✅ Automatic backups before every change
+- ✅ Restore from previous backups
+- ✅ Input validation and error handling
+- ✅ Audit logging of all changes
+
+### Configuration Backups
+
+Backups are stored in `./config_backups/` with timestamps. The system keeps the last 7 backups automatically.
+
 ## Configuration
 
-Edit `.env`:
+Edit `.env` or use the web interface at `http://localhost:8000/config`:
 
 ```env
 REDDIT_CLIENT_ID=your_reddit_client_id

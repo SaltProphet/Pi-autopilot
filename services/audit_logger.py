@@ -26,6 +26,10 @@ class AuditLogger:
         'error_occurred': 'Error during processing',
         'publishing_suppressed': 'Publishing suppressed due to performance',
         'sales_data_ingested': 'Sales data fetched from Gumroad',
+        'config_updated': 'Configuration updated via web UI',
+        'config_test': 'API key tested',
+        'config_backup_created': 'Configuration backup created',
+        'config_restored': 'Configuration restored from backup',
     }
     
     def __init__(self):

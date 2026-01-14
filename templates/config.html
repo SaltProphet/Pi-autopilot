@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration - Pi-Autopilot</title>
+    <link rel="stylesheet" href="/static/css/config.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚙️ Configuration</h1>
+            <p class="subtitle">Manage API keys and pipeline settings</p>
+            <div class="security-warning" id="securityWarning" style="display: none;">
+                ⚠️ Only configure API keys over HTTPS or on localhost
+            </div>
+        </header>
+
+        <!-- Section 1: API Keys -->
+        <section class="config-section">
+            <h2>🔑 API Keys</h2>
+            
+            <div class="config-field">
+                <label for="openai_key">OpenAI API Key <span class="required">*</span></label>
+                <div class="input-group">
+                    <input type="password" id="openai_key" name="OPENAI_API_KEY" placeholder="sk-proj-..."/>
+                    <button class="btn-icon" onclick="toggleVisibility('openai_key')" title="Show/Hide">👁️</button>
+                    <button class="btn-test" onclick="testApiKey('OPENAI', 'openai_key')">Test</button>
+                </div>
+                <span class="status-message" id="openai_key_status"></span>
+            </div>
+
+            <div class="config-field">
+                <label for="reddit_client_id">Reddit Client ID <span class="required">*</span></label>
+                <div class="input-group">
+                    <input type="text" id="reddit_client_id" name="REDDIT_CLIENT_ID" placeholder="Enter Reddit client ID"/>
+                </div>
+                <span class="status-message" id="reddit_client_id_status"></span>
+            </div>
+
+            <div class="config-field">
+                <label for="reddit_client_secret">Reddit Client Secret <span class="required">*</span></label>
+                <div class="input-group">
+                    <input type="password" id="reddit_client_secret" name="REDDIT_CLIENT_SECRET" placeholder="Enter Reddit client secret"/>
+                    <button class="btn-icon" onclick="toggleVisibility('reddit_client_secret')" title="Show/Hide">👁️</button>
+                    <button class="btn-test" onclick="testApiKey('REDDIT', 'reddit_client_secret')">Test</button>
+                </div>
+                <span class="status-message" id="reddit_client_secret_status"></span>
+            </div>
+
+            <div class="config-field">
+                <label for="reddit_user_agent">Reddit User Agent <span class="required">*</span></label>
+                <div class="input-group">
+                    <input type="text" id="reddit_user_agent" name="REDDIT_USER_AGENT" placeholder="Pi-Autopilot/2.0"/>
+                </div>
+                <span class="status-message" id="reddit_user_agent_status"></span>
+            </div>
+
+            <div class="config-field">
+                <label for="gumroad_token">Gumroad Access Token <span class="required">*</span></label>
+                <div class="input-group">
+                    <input type="password" id="gumroad_token" name="GUMROAD_ACCESS_TOKEN" placeholder="Enter Gumroad access token"/>
+                    <button class="btn-icon" onclick="toggleVisibility('gumroad_token')" title="Show/Hide">👁️</button>
+                    <button class="btn-test" onclick="testApiKey('GUMROAD', 'gumroad_token')">Test</button>
+                </div>
+                <span class="status-message" id="gumroad_token_status"></span>
+            </div>
+        </section>
+
+        <!-- Section 2: Service Toggles -->
+        <section class="config-section">
+            <h2>🔄 Service Toggles</h2>
+            
+            <div class="toggle-field">
+                <label class="toggle-label">
+                    <input type="checkbox" id="openai_enabled" name="OPENAI_ENABLED" class="toggle-switch"/>
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-text">Enable OpenAI API Calls</span>
+                </label>
+                <p class="field-description">Allow the pipeline to make OpenAI API requests</p>
+            </div>
+
+            <div class="toggle-field">
+                <label class="toggle-label">
+                    <input type="checkbox" id="reddit_enabled" name="REDDIT_ENABLED" class="toggle-switch"/>
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-text">Enable Reddit Ingestion</span>
+                </label>
+                <p class="field-description">Fetch and process Reddit posts</p>
+            </div>
+
+            <div class="toggle-field">
+                <label class="toggle-label">
+                    <input type="checkbox" id="gumroad_enabled" name="GUMROAD_ENABLED" class="toggle-switch"/>
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-text">Enable Gumroad Publishing</span>
+                </label>
+                <p class="field-description">Upload products to Gumroad</p>
+            </div>
+
+            <div class="toggle-field kill-switch-field">
+                <label class="toggle-label">
+                    <input type="checkbox" id="kill_switch" name="KILL_SWITCH" class="toggle-switch"/>
+                    <span class="toggle-slider kill-switch-slider"></span>
+                    <span class="toggle-text kill-switch-text">🛑 Kill Switch</span>
+                </label>
+                <p class="warning-text">⚠️ Enabling this will stop ALL pipeline execution!</p>
+            </div>
+        </section>
+
+        <!-- Section 3: Cost Limits -->
+        <section class="config-section">
+            <h2>💰 Cost Limits</h2>
+            
+            <div class="config-field">
+                <label for="max_usd_per_run">Max USD per Run</label>
+                <input type="number" id="max_usd_per_run" name="MAX_USD_PER_RUN" min="0.01" max="1000" step="0.01" placeholder="5.0"/>
+                <p class="field-description">Maximum cost allowed for a single pipeline run</p>
+            </div>
+
+            <div class="config-field">
+                <label for="max_usd_lifetime">Max USD Lifetime</label>
+                <input type="number" id="max_usd_lifetime" name="MAX_USD_LIFETIME" min="1.0" max="10000" step="1.0" placeholder="100.0"/>
+                <p class="field-description">Maximum total cost across all runs</p>
+            </div>
+
+            <div class="config-field">
+                <label for="max_tokens_per_run">Max Tokens per Run</label>
+                <input type="number" id="max_tokens_per_run" name="MAX_TOKENS_PER_RUN" min="1000" max="1000000" step="1000" placeholder="50000"/>
+                <p class="field-description">Maximum tokens allowed for a single pipeline run</p>
+            </div>
+        </section>
+
+        <!-- Section 4: Pipeline Settings -->
+        <section class="config-section">
+            <h2>🔧 Pipeline Settings</h2>
+            
+            <div class="config-field">
+                <label for="reddit_subreddits">Subreddits (comma-separated)</label>
+                <input type="text" id="reddit_subreddits" name="REDDIT_SUBREDDITS" placeholder="Entrepreneur,SaaS,startups"/>
+                <p class="field-description">List of subreddits to monitor for posts</p>
+            </div>
+
+            <div class="config-field">
+                <label for="reddit_min_score">Minimum Reddit Post Score</label>
+                <input type="number" id="reddit_min_score" name="REDDIT_MIN_SCORE" min="0" max="100000" step="1" placeholder="10"/>
+                <p class="field-description">Only process posts with this score or higher</p>
+            </div>
+
+            <div class="config-field">
+                <label for="reddit_post_limit">Posts per Subreddit</label>
+                <input type="number" id="reddit_post_limit" name="REDDIT_POST_LIMIT" min="1" max="100" step="1" placeholder="20"/>
+                <p class="field-description">Maximum number of posts to fetch per subreddit</p>
+            </div>
+        </section>
+
+        <!-- Action Bar -->
+        <div class="action-bar">
+            <button class="btn-primary" onclick="saveConfiguration()">💾 Save Configuration</button>
+            <button class="btn-secondary" onclick="resetForm()">↺ Reset</button>
+            <button class="btn-secondary" onclick="viewBackups()">📦 View Backups</button>
+            <a href="/" class="btn-secondary">← Back to Dashboard</a>
+        </div>
+
+        <!-- Status Banner (hidden by default) -->
+        <div id="saveStatus" class="status-banner" style="display: none;"></div>
+
+        <!-- Backup Modal -->
+        <div id="backupModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <span class="close" onclick="closeBackupModal()">&times;</span>
+                <h2>📦 Configuration Backups</h2>
+                <div id="backupList" class="backup-list">
+                    <p>Loading backups...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/config-manager.js"></script>
+</body>
+</html>

@@ -7,19 +7,98 @@ Run with: python dashboard.py
 Access at: http://localhost:8000
 """
 
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Request, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 import sqlite3
 import json
 from datetime import datetime, timedelta
 from contextlib import contextmanager
+from typing import Optional
 import asyncio
 import os
+import secrets
 
 from config import settings
+from services.config_manager import ConfigManager
 
 app = FastAPI()
+
+# HTTP Basic Auth for dashboard (optional)
+security = HTTPBasic(auto_error=False)
+
+# Initialize ConfigManager
+config_manager = ConfigManager()
+
+# Security middleware for IP whitelisting
+class IPWhitelistMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Skip whitelisting for config endpoints if no restriction set
+        allowed_ips_str = os.getenv('DASHBOARD_ALLOWED_IPS', '')
+        
+        if not allowed_ips_str:
+            # No IP restriction
+            return await call_next(request)
+        
+        allowed_ips = [ip.strip() for ip in allowed_ips_str.split(',')]
+        client_ip = request.client.host
+        
+        # Allow if client IP is in whitelist
+        if client_ip in allowed_ips or '0.0.0.0' in allowed_ips:
+            return await call_next(request)
+        
+        return JSONResponse(
+            status_code=403,
+            content={"error": "Access denied: IP not whitelisted"}
+        )
+
+# Add IP whitelist middleware
+app.add_middleware(IPWhitelistMiddleware)
+
+# Mount static files
+static_dir = os.path.join(os.path.dirname(__file__), 'static')
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+
+def verify_dashboard_auth(credentials: Optional[HTTPBasicCredentials] = Depends(security)) -> bool:
+    """Verify dashboard authentication if password is set.
+    
+    Args:
+        credentials: HTTP Basic Auth credentials (optional)
+    
+    Returns:
+        True if authenticated or no password required
+    
+    Raises:
+        HTTPException: If authentication fails
+    """
+    dashboard_password = os.getenv('DASHBOARD_PASSWORD', '')
+    
+    # No password set - allow access without credentials
+    if not dashboard_password:
+        return True
+    
+    # Password is set but no credentials provided
+    if credentials is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Basic"}
+        )
+    
+    # Verify password
+    if not secrets.compare_digest(credentials.password, dashboard_password):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Basic"}
+        )
+    
+    return True
 
 @contextmanager
 def get_db():
@@ -518,8 +597,143 @@ async def get_posts():
     return get_active_posts()
 
 
+@app.get("/config", response_class=HTMLResponse)
+async def get_config_page():
+    """Serve the configuration page."""
+    templates_dir = os.path.join(os.path.dirname(__file__), 'templates')
+    config_html_path = os.path.join(templates_dir, 'config.html')
+    
+    if os.path.exists(config_html_path):
+        with open(config_html_path, 'r') as f:
+            return f.read()
+    else:
+        return """
+        <html>
+            <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+                <h1>Configuration Page Not Found</h1>
+                <p>The configuration template has not been created yet.</p>
+                <a href="/">← Back to Dashboard</a>
+            </body>
+        </html>
+        """
+
+
+@app.get("/api/config")
+async def get_config(authenticated: bool = Depends(verify_dashboard_auth)):
+    """Get current configuration with masked sensitive values.
+    
+    Returns:
+        JSON with configuration organized by category
+    """
+    try:
+        config = config_manager.get_current_config()
+        return {"success": True, "config": config}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/config/update")
+async def update_config(request: Request, authenticated: bool = Depends(verify_dashboard_auth)):
+    """Update configuration with validation.
+    
+    Request body format:
+    {
+        "api_keys": {"OPENAI_API_KEY": "sk-...", ...},
+        "toggles": {"OPENAI_ENABLED": true, ...},
+        "cost_limits": {"MAX_USD_PER_RUN": 5.0, ...},
+        "pipeline": {"REDDIT_SUBREDDITS": "Entrepreneur,SaaS", ...}
+    }
+    
+    Returns:
+        JSON with success status and any errors
+    """
+    try:
+        updates = await request.json()
+        client_ip = request.client.host
+        
+        success, messages = config_manager.update_config(updates, user_ip=client_ip)
+        
+        if success:
+            return {"success": True, "messages": messages}
+        else:
+            return {"success": False, "errors": messages}
+            
+    except Exception as e:
+        return {"success": False, "errors": [str(e)]}
+
+
+@app.post("/api/config/test")
+async def test_api_key(request: Request, authenticated: bool = Depends(verify_dashboard_auth)):
+    """Test API key validity before saving.
+    
+    Query parameters:
+        service: Service name (OPENAI, REDDIT, GUMROAD)
+        api_key: API key to test
+    
+    Returns:
+        JSON with validation result and message
+    """
+    try:
+        params = dict(request.query_params)
+        service = params.get('service')
+        api_key = params.get('api_key')
+        
+        if not service or not api_key:
+            return {"success": False, "message": "Missing service or api_key parameter"}
+        
+        is_valid, message = config_manager.test_api_key(service, api_key)
+        
+        return {"success": is_valid, "message": message}
+        
+    except Exception as e:
+        return {"success": False, "message": f"Test error: {str(e)}"}
+
+
+@app.get("/api/config/backups")
+async def list_config_backups(authenticated: bool = Depends(verify_dashboard_auth)):
+    """List all available configuration backups.
+    
+    Returns:
+        JSON list of backup metadata
+    """
+    try:
+        backups = config_manager.list_backups()
+        return {"success": True, "backups": backups}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/config/restore")
+async def restore_config_backup(request: Request, authenticated: bool = Depends(verify_dashboard_auth)):
+    """Restore configuration from a backup file.
+    
+    Request body:
+    {
+        "backup_filename": "env_backup_20260114_123456.txt"
+    }
+    
+    Returns:
+        JSON with success status and message
+    """
+    try:
+        data = await request.json()
+        backup_filename = data.get('backup_filename')
+        client_ip = request.client.host
+        
+        if not backup_filename:
+            return {"success": False, "message": "Missing backup_filename"}
+        
+        success, message = config_manager.restore_backup(backup_filename, user_ip=client_ip)
+        
+        return {"success": success, "message": message}
+        
+    except Exception as e:
+        return {"success": False, "message": f"Restore error: {str(e)}"}
+
+
 if __name__ == "__main__":
     import uvicorn
     print("🚀 Starting Pi-Autopilot Dashboard on http://0.0.0.0:8000")
     print("   Access dashboard at: http://localhost:8000")
+    print("   Configuration at: http://localhost:8000/config")
     uvicorn.run(app, host="0.0.0.0", port=8000)
