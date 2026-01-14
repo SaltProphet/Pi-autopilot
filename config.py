@@ -26,7 +26,12 @@ class Settings(BaseSettings):
     max_usd_per_run: float = 5.0
     max_usd_lifetime: float = 100.0
     
+    # Service toggles
+    openai_enabled: bool = True
+    reddit_enabled: bool = True
+    gumroad_enabled: bool = True
     kill_switch: bool = False
+    
     dry_run: bool = True
     
     openai_input_token_price: float = 0.03
@@ -36,6 +41,10 @@ class Settings(BaseSettings):
     zero_sales_suppression_count: int = 5
     refund_rate_max: float = 0.3
     sales_lookback_days: int = 30
+    
+    # Dashboard security (optional)
+    dashboard_password: str = ""
+    dashboard_allowed_ips: str = "127.0.0.1"
     
     class Config:
         env_file = ".env"

@@ -7,19 +7,64 @@ Run with: python dashboard.py
 Access at: http://localhost:8000
 """
 
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Request, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import sqlite3
 import json
+import secrets
 from datetime import datetime, timedelta
 from contextlib import contextmanager
+from typing import Optional
 import asyncio
 import os
 
 from config import settings
+from services.config_manager import ConfigManager, ConfigValidationError
 
 app = FastAPI()
+security = HTTPBasic()
+
+# Mount static files directory
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Initialize ConfigManager
+config_manager = ConfigManager()
+
+
+def check_auth(credentials: HTTPBasicCredentials = Depends(security)) -> bool:
+    """Check HTTP Basic Auth if DASHBOARD_PASSWORD is set."""
+    if not settings.dashboard_password:
+        return True
+    
+    correct_password = settings.dashboard_password.encode("utf8")
+    provided_password = credentials.password.encode("utf8")
+    
+    is_correct = secrets.compare_digest(provided_password, correct_password)
+    
+    if not is_correct:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    
+    return True
+
+
+def check_ip(request: Request) -> bool:
+    """Check if request IP is in allowed list."""
+    if not settings.dashboard_allowed_ips:
+        return True
+    
+    client_ip = request.client.host
+    allowed_ips = [ip.strip() for ip in settings.dashboard_allowed_ips.split(',')]
+    
+    if client_ip not in allowed_ips and '*' not in allowed_ips:
+        raise HTTPException(status_code=403, detail="IP address not allowed")
+    
+    return True
 
 @contextmanager
 def get_db():
@@ -516,6 +561,116 @@ async def get_activity():
 async def get_posts():
     """Get active posts."""
     return get_active_posts()
+
+
+@app.get("/config", response_class=HTMLResponse)
+async def config_page(request: Request, authenticated: bool = Depends(check_auth)):
+    """Serve the configuration page."""
+    check_ip(request)
+    
+    try:
+        with open("templates/config.html", "r") as f:
+            return f.read()
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Configuration page not found")
+
+
+@app.get("/api/config")
+async def get_config(request: Request, authenticated: bool = Depends(check_auth)):
+    """Get current configuration with masked sensitive values."""
+    check_ip(request)
+    
+    try:
+        config = config_manager.get_current_config()
+        return {"success": True, "config": config}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/config/update")
+async def update_config(request: Request, authenticated: bool = Depends(check_auth)):
+    """Update configuration with validation."""
+    check_ip(request)
+    
+    try:
+        body = await request.json()
+        client_ip = request.client.host
+        
+        result = config_manager.update_config(body, user_ip=client_ip)
+        return result
+    except ConfigValidationError as e:
+        raise HTTPException(status_code=400, detail={"errors": e.errors})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/config/test")
+async def test_api_key(request: Request, authenticated: bool = Depends(check_auth)):
+    """Test API key before saving."""
+    check_ip(request)
+    
+    try:
+        body = await request.json()
+        service = body.get('service')
+        api_key = body.get('api_key')
+        
+        if not service or not api_key:
+            raise HTTPException(status_code=400, detail="Missing service or api_key")
+        
+        # Special case for Reddit - needs all three credentials
+        if service.upper() == 'REDDIT':
+            client_id = body.get('client_id')
+            client_secret = body.get('client_secret')
+            user_agent = body.get('user_agent')
+            
+            if not all([client_id, client_secret, user_agent]):
+                raise HTTPException(status_code=400, detail="Reddit requires client_id, client_secret, and user_agent")
+            
+            result = config_manager.test_reddit_credentials(client_id, client_secret, user_agent)
+        else:
+            result = config_manager.test_api_key(service, api_key)
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+
+@app.get("/api/config/backups")
+async def list_backups(request: Request, authenticated: bool = Depends(check_auth)):
+    """List all configuration backups."""
+    check_ip(request)
+    
+    try:
+        backups = config_manager.list_backups()
+        return {"success": True, "backups": backups}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/config/restore")
+async def restore_backup(request: Request, authenticated: bool = Depends(check_auth)):
+    """Restore configuration from backup."""
+    check_ip(request)
+    
+    try:
+        body = await request.json()
+        backup_filename = body.get('backup_filename')
+        
+        if not backup_filename:
+            raise HTTPException(status_code=400, detail="Missing backup_filename")
+        
+        client_ip = request.client.host
+        result = config_manager.restore_from_backup(backup_filename, user_ip=client_ip)
+        
+        return result
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ConfigValidationError as e:
+        raise HTTPException(status_code=400, detail={"errors": e.errors})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

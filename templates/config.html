@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration - Pi-Autopilot</title>
+    <link rel="stylesheet" href="/static/css/config.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>⚙️ Configuration Management</h1>
+            <a href="/" class="back-link">← Back to Dashboard</a>
+        </header>
+
+        <div id="security-warning" class="warning-banner" style="display: none;">
+            ⚠️ <strong>Security Warning:</strong> You are accessing this page over an insecure connection. 
+            Please use HTTPS or access from localhost only.
+        </div>
+
+        <form id="config-form">
+            <!-- API Keys Section -->
+            <section class="config-section">
+                <h2>🔑 API Keys</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="openai_api_key">OpenAI API Key</label>
+                        <div class="input-with-actions">
+                            <input type="password" id="openai_api_key" name="OPENAI_API_KEY" 
+                                   placeholder="sk-..." data-masked="true">
+                            <button type="button" class="btn-icon" onclick="toggleVisibility('openai_api_key')" 
+                                    title="Show/Hide">👁️</button>
+                            <button type="button" class="btn-test" onclick="testApiKey('OPENAI', 'openai_api_key')">
+                                Test
+                            </button>
+                        </div>
+                        <span class="test-status" id="openai_api_key_status"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reddit_client_id">Reddit Client ID</label>
+                        <div class="input-with-actions">
+                            <input type="text" id="reddit_client_id" name="REDDIT_CLIENT_ID" placeholder="">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reddit_client_secret">Reddit Client Secret</label>
+                        <div class="input-with-actions">
+                            <input type="password" id="reddit_client_secret" name="REDDIT_CLIENT_SECRET" 
+                                   placeholder="" data-masked="true">
+                            <button type="button" class="btn-icon" onclick="toggleVisibility('reddit_client_secret')" 
+                                    title="Show/Hide">👁️</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reddit_user_agent">Reddit User Agent</label>
+                        <div class="input-with-actions">
+                            <input type="text" id="reddit_user_agent" name="REDDIT_USER_AGENT" 
+                                   placeholder="Pi-Autopilot/2.0">
+                            <button type="button" class="btn-test" onclick="testRedditCredentials()">
+                                Test
+                            </button>
+                        </div>
+                        <span class="test-status" id="reddit_status"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="gumroad_access_token">Gumroad Access Token</label>
+                        <div class="input-with-actions">
+                            <input type="password" id="gumroad_access_token" name="GUMROAD_ACCESS_TOKEN" 
+                                   placeholder="" data-masked="true">
+                            <button type="button" class="btn-icon" onclick="toggleVisibility('gumroad_access_token')" 
+                                    title="Show/Hide">👁️</button>
+                            <button type="button" class="btn-test" onclick="testApiKey('GUMROAD', 'gumroad_access_token')">
+                                Test
+                            </button>
+                        </div>
+                        <span class="test-status" id="gumroad_access_token_status"></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Service Toggles Section -->
+            <section class="config-section">
+                <h2>🎛️ Service Toggles</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="openai_enabled" name="OPENAI_ENABLED" class="toggle-input">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Enable OpenAI</span>
+                        </label>
+                        <p class="field-description">Allow OpenAI API calls for content generation</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="reddit_enabled" name="REDDIT_ENABLED" class="toggle-input">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Enable Reddit Ingestion</span>
+                        </label>
+                        <p class="field-description">Fetch posts from Reddit subreddits</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="gumroad_enabled" name="GUMROAD_ENABLED" class="toggle-input">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Enable Gumroad Publishing</span>
+                        </label>
+                        <p class="field-description">Upload products to Gumroad marketplace</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="kill_switch" name="KILL_SWITCH" class="toggle-input" 
+                                   onchange="confirmKillSwitch(this)">
+                            <span class="toggle-slider toggle-danger"></span>
+                            <span class="toggle-text">Kill Switch (Stop All Pipeline)</span>
+                        </label>
+                        <p class="field-description warning-text">⚠️ Enabling this will immediately stop all pipeline execution!</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Cost Limits Section -->
+            <section class="config-section">
+                <h2>💰 Cost Limits</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="max_usd_per_run">Max USD per Run</label>
+                        <input type="number" id="max_usd_per_run" name="MAX_USD_PER_RUN" 
+                               min="0.01" max="1000" step="0.01" placeholder="5.0">
+                        <p class="field-description">Maximum cost allowed per pipeline run</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="max_usd_lifetime">Max USD Lifetime</label>
+                        <input type="number" id="max_usd_lifetime" name="MAX_USD_LIFETIME" 
+                               min="1" max="10000" step="1" placeholder="100.0">
+                        <p class="field-description">Total lifetime cost limit</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="max_tokens_per_run">Max Tokens per Run</label>
+                        <input type="number" id="max_tokens_per_run" name="MAX_TOKENS_PER_RUN" 
+                               min="1000" max="1000000" step="1000" placeholder="50000">
+                        <p class="field-description">Maximum tokens allowed per run</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Pipeline Settings Section -->
+            <section class="config-section">
+                <h2>⚙️ Pipeline Settings</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="reddit_subreddits">Subreddits (comma-separated)</label>
+                        <input type="text" id="reddit_subreddits" name="REDDIT_SUBREDDITS" 
+                               placeholder="Entrepreneur,SaaS,startups">
+                        <p class="field-description">List of subreddits to monitor</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reddit_min_score">Minimum Reddit Score</label>
+                        <input type="number" id="reddit_min_score" name="REDDIT_MIN_SCORE" 
+                               min="0" max="100000" step="1" placeholder="10">
+                        <p class="field-description">Minimum upvotes required for posts</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reddit_post_limit">Posts per Run</label>
+                        <input type="number" id="reddit_post_limit" name="REDDIT_POST_LIMIT" 
+                               min="1" max="100" step="1" placeholder="25">
+                        <p class="field-description">Maximum posts to process per run</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Action Bar -->
+            <div class="action-bar">
+                <button type="button" class="btn btn-secondary" onclick="resetForm()">
+                    ↺ Reset
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="viewBackups()">
+                    📦 View Backups
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    💾 Save Configuration
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Backup List Modal -->
+    <div id="backup-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Configuration Backups</h2>
+                <button type="button" class="btn-close" onclick="closeBackupModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="backup-list">Loading backups...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script src="/static/js/config-manager.js"></script>
+</body>
+</html>
