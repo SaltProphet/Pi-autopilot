@@ -18,13 +18,16 @@ cleanup() {
 # Run cleanup on any error
 trap 'cleanup' ERR
 
-echo "Pi-Autopilot Setup Script"
-echo "========================="
+echo "Pi-Autopilot Setup Script (HTTPS Mode)"
+echo "======================================="
+echo ""
+echo "This installer uses HTTPS with a Personal Access Token (PAT)"
+echo "instead of SSH keys."
 echo ""
 
 if [ "$EUID" -ne 0 ]; then 
     echo "ERROR: Please run with sudo"
-    echo "Usage: sudo bash installer/setup_pi.sh"
+    echo "Usage: sudo bash installer/setup_with_https.sh"
     exit 1
 fi
 
@@ -38,16 +41,53 @@ fi
 if [ -z "$REAL_USER" ] || [ "$REAL_USER" = "root" ]; then
     echo "ERROR: Could not detect the actual user."
     echo "Please run this script with sudo as a regular user, not as root directly."
-    echo "Example: sudo bash installer/setup_pi.sh"
+    echo "Example: sudo bash installer/setup_with_https.sh"
     exit 1
 fi
 
-REAL_USER_HOME=$(eval echo "~$REAL_USER")
-
 echo "Detected user: $REAL_USER"
-echo "User home directory: $REAL_USER_HOME"
 echo ""
 
+# Prompt for GitHub username
+echo "GitHub Authentication Setup"
+echo "==========================="
+echo ""
+read -p "Enter your GitHub username: " GITHUB_USERNAME
+echo ""
+
+if [ -z "$GITHUB_USERNAME" ]; then
+    echo "ERROR: GitHub username is required"
+    exit 1
+fi
+
+# Prompt for GitHub PAT
+echo "You need a GitHub Personal Access Token (PAT) to clone the repository."
+echo ""
+echo "If you don't have one:"
+echo "  1. Go to: https://github.com/settings/tokens"
+echo "  2. Click 'Generate new token (classic)'"
+echo "  3. Give it a name (e.g., 'Pi-Autopilot')"
+echo "  4. Select scope: 'repo' (Full control of private repositories)"
+echo "  5. Click 'Generate token'"
+echo "  6. Copy the token (you won't be able to see it again!)"
+echo ""
+read -sp "Enter your GitHub Personal Access Token: " GITHUB_TOKEN
+echo ""
+echo ""
+
+if [ -z "$GITHUB_TOKEN" ]; then
+    echo "ERROR: No token provided"
+    exit 1
+fi
+
+# Validate token format (should be a long alphanumeric string)
+# GitHub tokens can contain letters, numbers, underscores, and sometimes dots/hyphens
+if [ ${#GITHUB_TOKEN} -lt 20 ]; then
+    echo "ERROR: Token seems too short. GitHub tokens are typically 40+ characters."
+    exit 1
+fi
+
+echo ""
 echo "Installing system dependencies..."
 apt-get update
 apt-get install -y python3 python3-pip python3-venv git
@@ -57,91 +97,56 @@ mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 
 if [ ! -d ".git" ]; then
-    echo "Validating SSH configuration..."
     echo ""
+    echo "Cloning repository via HTTPS..."
     
-    # Check if SSH key exists
-    SSH_KEY_FOUND=false
-    for key_type in id_rsa id_ed25519 id_ecdsa id_dsa; do
-        if [ -f "$REAL_USER_HOME/.ssh/$key_type" ]; then
-            SSH_KEY_FOUND=true
-            echo "✓ Found SSH key: $REAL_USER_HOME/.ssh/$key_type"
-            break
-        fi
-    done
+    # Use git credential helper to securely handle the token
+    # Configure credential helper with a short timeout
+    # Note: Using --global since repo doesn't exist yet, will be used for this clone only
+    git config --global credential.helper 'cache --timeout=300'
     
-    if [ "$SSH_KEY_FOUND" = false ]; then
-        echo "ERROR: No SSH keys found for user $REAL_USER"
-        echo ""
-        echo "SSH keys are required to clone the repository."
-        echo ""
-        echo "To set up SSH keys:"
-        echo "  1. Generate an SSH key:"
-        echo "     ssh-keygen -t ed25519 -C \"your_email@example.com\""
-        echo ""
-        echo "  2. Add the public key to your GitHub account:"
-        echo "     cat ~/.ssh/id_ed25519.pub"
-        echo "     Then go to: https://github.com/settings/keys"
-        echo ""
-        echo "  3. Re-run this installer"
-        echo ""
-        echo "For detailed instructions, see:"
-        echo "  https://docs.github.com/en/authentication/connecting-to-github-with-ssh"
-        echo ""
-        echo "Alternative: Use HTTPS with Personal Access Token (PAT)"
-        echo "  Run: sudo bash installer/setup_with_https.sh"
-        exit 1
-    fi
+    # Set up credentials using git credential approve (avoids command line exposure)
+    # Using printf instead of echo for better security
+    printf "protocol=https\nhost=github.com\nusername=%s\npassword=%s\n" "$GITHUB_USERNAME" "$GITHUB_TOKEN" | git credential approve
     
-    # Test SSH connection to GitHub
-    echo ""
-    echo "Testing SSH connection to GitHub..."
-    echo "(Note: Host key will be added to known_hosts on first connection)"
-    if sudo -u "$REAL_USER" ssh -T -o StrictHostKeyChecking=accept-new -o BatchMode=yes git@github.com 2>&1 | grep -q "successfully authenticated"; then
-        echo "✓ SSH connection to GitHub successful"
-    else
-        echo "ERROR: SSH authentication to GitHub failed"
-        echo ""
-        echo "Your SSH key exists but GitHub authentication failed."
-        echo ""
-        echo "Possible causes:"
-        echo "  1. SSH key not added to your GitHub account"
-        echo "  2. SSH key has a passphrase and ssh-agent is not running"
-        echo "  3. Wrong SSH key is being used"
-        echo ""
-        echo "To fix this:"
-        echo "  1. Copy your PUBLIC key:"
-        echo "     cat $REAL_USER_HOME/.ssh/id_ed25519.pub"
-        echo "     (or cat $REAL_USER_HOME/.ssh/id_rsa.pub)"
-        echo ""
-        echo "  2. Add it to GitHub at: https://github.com/settings/keys"
-        echo ""
-        echo "  3. Test the connection manually:"
-        echo "     ssh -T git@github.com"
-        echo ""
-        echo "  4. Re-run this installer"
-        echo ""
-        echo "For help, see:"
-        echo "  https://docs.github.com/en/authentication/connecting-to-github-with-ssh"
-        exit 1
-    fi
-    
-    echo ""
-    echo "Cloning repository via SSH..."
-    # Clone as the actual user to use their SSH keys
-    if ! sudo -u "$REAL_USER" git clone git@github.com:SaltProphet/Pi-autopilot.git . ; then
+    # Now clone without the token in the URL
+    if ! git clone https://github.com/SaltProphet/Pi-autopilot.git . ; then
+        # Clear the credential cache on failure
+        git credential-cache exit 2>/dev/null || true
+        # Reset global credential helper
+        git config --global --unset credential.helper 2>/dev/null || true
+        # Clear credentials from memory
+        unset GITHUB_TOKEN
+        unset GITHUB_USERNAME
+        
         echo ""
         echo "ERROR: Failed to clone repository"
         echo ""
-        echo "This usually happens if:"
+        echo "Possible causes:"
+        echo "  - Invalid or expired Personal Access Token"
+        echo "  - Token doesn't have 'repo' scope"
         echo "  - You don't have access to the repository"
         echo "  - Network connectivity issues"
-        echo "  - SSH key permissions are wrong"
         echo ""
-        echo "Try cloning manually to diagnose:"
-        echo "  git clone git@github.com:SaltProphet/Pi-autopilot.git /tmp/test-clone"
+        echo "To fix:"
+        echo "  1. Verify your token at: https://github.com/settings/tokens"
+        echo "  2. Ensure it has 'repo' scope"
+        echo "  3. Re-run this installer with a valid token"
         exit 1
     fi
+    
+    # Clear the credential cache after successful clone
+    git credential-cache exit 2>/dev/null || true
+    
+    # Reset global credential helper to avoid affecting user's git config
+    # (Only needed if user had no credential helper set before)
+    git config --global --unset credential.helper 2>/dev/null || true
+    
+    # Clear credentials from memory for security
+    unset GITHUB_TOKEN
+    unset GITHUB_USERNAME
+    
+    echo "✓ Repository cloned successfully"
 fi
 
 echo "Creating Python virtual environment..."
