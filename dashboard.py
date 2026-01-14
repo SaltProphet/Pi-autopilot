@@ -33,14 +33,14 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 config_manager = ConfigManager()
 
 
-def get_optional_auth():
-    """Get optional authentication - only enforce if password is set."""
+def get_auth_dependency():
+    """Get authentication dependency based on settings."""
     if settings.dashboard_password:
-        return Depends(security)
-    return lambda: None
+        return security
+    return None
 
 
-def check_auth(credentials: Optional[HTTPBasicCredentials] = Depends(lambda: security if settings.dashboard_password else None)) -> bool:
+def check_auth(credentials: Optional[HTTPBasicCredentials] = Depends(get_auth_dependency)) -> bool:
     """Check HTTP Basic Auth if DASHBOARD_PASSWORD is set."""
     if not settings.dashboard_password:
         return True

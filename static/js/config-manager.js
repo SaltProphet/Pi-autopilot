@@ -258,7 +258,7 @@ async function testRedditCredentials() {
     testBtn.textContent = 'Testing...';
     statusEl.textContent = '';
     
-    try {
+    try:
         const response = await fetch('/api/config/test', {
             method: 'POST',
             headers: {
@@ -269,7 +269,7 @@ async function testRedditCredentials() {
                 client_id: clientId,
                 client_secret: clientSecret,
                 user_agent: userAgent,
-                api_key: 'dummy'  // Required by API but not used
+                api_key: ''  // Empty but required by API structure
             })
         });
         
