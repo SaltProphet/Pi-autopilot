@@ -21,6 +21,16 @@ class Storage:
     
     def _init_db(self):
         with self._get_conn() as conn:
+            # Check if source column exists, if not, add migration
+            cursor = conn.execute("PRAGMA table_info(reddit_posts)")
+            columns = [col[1] for col in cursor.fetchall()]
+            
+            if 'source' not in columns:
+                # Migrate existing table by adding source column
+                conn.execute("""
+                    ALTER TABLE reddit_posts ADD COLUMN source TEXT DEFAULT 'reddit'
+                """)
+            
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS reddit_posts (
                     id TEXT PRIMARY KEY,
@@ -31,7 +41,8 @@ class Storage:
                     author TEXT,
                     score INTEGER,
                     url TEXT,
-                    raw_json TEXT
+                    raw_json TEXT,
+                    source TEXT DEFAULT 'reddit'
                 )
             """)
             
@@ -107,19 +118,26 @@ class Storage:
     def save_post(self, post_data: dict):
         with self._get_conn() as conn:
             try:
+                # Convert created_utc to timestamp for backward compatibility
+                timestamp = int(post_data.get("created_utc", post_data.get("timestamp", time.time())))
+                
+                # Extract subreddit from source or set default
+                subreddit = post_data.get("subreddit", post_data.get("source", "unknown"))
+                
                 conn.execute("""
-                    INSERT INTO reddit_posts (id, title, body, timestamp, subreddit, author, score, url, raw_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO reddit_posts (id, title, body, timestamp, subreddit, author, score, url, raw_json, source)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     post_data["id"],
                     post_data["title"],
-                    post_data["body"],
-                    post_data["timestamp"],
-                    post_data["subreddit"],
-                    post_data["author"],
-                    post_data["score"],
-                    post_data["url"],
-                    json.dumps(post_data)
+                    post_data.get("body", ""),
+                    timestamp,
+                    subreddit,
+                    post_data.get("author", "unknown"),
+                    post_data.get("score", 0),
+                    post_data.get("url", ""),
+                    json.dumps(post_data),
+                    post_data.get("source", "unknown")
                 ))
                 conn.commit()
                 return True
