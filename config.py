@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     max_usd_lifetime: float = 100.0
     
     kill_switch: bool = False
+    dry_run: bool = True
     
     openai_input_token_price: float = 0.03
     openai_output_token_price: float = 0.06
