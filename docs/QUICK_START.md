@@ -20,7 +20,7 @@ Before running the installer, ensure SSH keys are configured for GitHub:
 
 ```bash
 # Generate SSH key if needed (replace with your GitHub email)
-ssh-keygen -t ed25519 -C "your_email@example.com"
+ssh-keygen -t ed25519 -C "<your_email@example.com>"
 
 # View public key
 cat ~/.ssh/id_ed25519.pub

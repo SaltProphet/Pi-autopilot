@@ -33,7 +33,7 @@ Before installing, ensure you have SSH keys configured for GitHub:
 
 ```bash
 # Generate SSH key if you don't have one (replace with your GitHub email)
-ssh-keygen -t ed25519 -C "your_email@example.com"
+ssh-keygen -t ed25519 -C "<your_email@example.com>"
 
 # Copy the public key
 cat ~/.ssh/id_ed25519.pub
