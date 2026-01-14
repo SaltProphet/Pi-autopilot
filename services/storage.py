@@ -78,6 +78,13 @@ class Storage:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_timestamp_desc ON audit_log(timestamp DESC)")
             
+            # Add performance indexes for frequently queried columns
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_pipeline_runs_post_id ON pipeline_runs(post_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_pipeline_runs_status ON pipeline_runs(status)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_pipeline_runs_created_at ON pipeline_runs(created_at)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_cost_tracking_timestamp ON cost_tracking(timestamp)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_reddit_posts_timestamp ON reddit_posts(timestamp)")
+            
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS sales_metrics (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,18 +135,15 @@ class Storage:
     
     def get_unprocessed_posts(self):
         with self._get_conn() as conn:
-            # Get posts that either:
-            # 1. Have never been processed (pr.id IS NULL)
-            # 2. Have only failed/discarded/cost_exceeded runs (no successful completion)
+            # Optimized query: Get posts that don't have successful completion
+            # Uses index on post_id and status for better performance
             rows = conn.execute("""
                 SELECT rp.* FROM reddit_posts rp
-                LEFT JOIN (
-                    SELECT post_id, MAX(created_at) as last_run
-                    FROM pipeline_runs
-                    WHERE status IN ('completed', 'gumroad_uploaded')
-                    GROUP BY post_id
-                ) successful ON rp.id = successful.post_id
-                WHERE successful.post_id IS NULL
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM pipeline_runs pr
+                    WHERE pr.post_id = rp.id
+                    AND pr.status IN ('completed', 'gumroad_uploaded')
+                )
                 ORDER BY rp.timestamp DESC
             """).fetchall()
             return [dict(row) for row in rows]

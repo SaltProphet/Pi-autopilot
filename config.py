@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     kill_switch: bool = False
     dry_run: bool = True
     
-    openai_input_token_price: float = 0.03
-    openai_output_token_price: float = 0.06
+    openai_input_token_price: float = 0.00003
+    openai_output_token_price: float = 0.00006
     
     # Sales feedback configuration
     zero_sales_suppression_count: int = 5
@@ -44,15 +44,17 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# Validate configuration on startup
-try:
-    validator = ConfigValidator(settings)
-    validator.validate_or_raise()
-except ConfigValidationError as e:
-    print("CONFIGURATION ERROR:")
-    for error in e.errors:
-        print(f"  - {error}")
-    raise SystemExit("Configuration validation failed. Check .env file and try again.")
+# Validate configuration on startup (skip if SKIP_CONFIG_VALIDATION env var is set)
+skip_validation = os.getenv('SKIP_CONFIG_VALIDATION', '').lower() in ('1', 'true', 'yes')
+if not skip_validation:
+    try:
+        validator = ConfigValidator(settings)
+        validator.validate_or_raise()
+    except ConfigValidationError as e:
+        print("CONFIGURATION ERROR:")
+        for error in e.errors:
+            print(f"  - {error}")
+        raise SystemExit("Configuration validation failed. Check .env file and try again.")
 
 os.makedirs(os.path.dirname(settings.database_path), exist_ok=True)
 os.makedirs(settings.artifacts_path, exist_ok=True)
