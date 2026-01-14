@@ -53,8 +53,8 @@ apt-get update
 apt-get install -y python3 python3-pip python3-venv git
 
 echo "Creating installation directory: $INSTALL_DIR"
-mkdir -p $INSTALL_DIR
-cd $INSTALL_DIR
+mkdir -p "$INSTALL_DIR"
+cd "$INSTALL_DIR"
 
 if [ ! -d ".git" ]; then
     echo "Validating SSH configuration..."
@@ -172,15 +172,15 @@ if [ ! -f ".env" ]; then
 fi
 
 echo "Setting up systemd service for pipeline..."
-cp $INSTALL_DIR/saltprophet.service /etc/systemd/system/pi-autopilot.service
+cp "$INSTALL_DIR/saltprophet.service" /etc/systemd/system/pi-autopilot.service
 chmod 644 /etc/systemd/system/pi-autopilot.service
 
 echo "Setting up systemd timer..."
-cp $INSTALL_DIR/saltprophet.timer /etc/systemd/system/pi-autopilot.timer
+cp "$INSTALL_DIR/saltprophet.timer" /etc/systemd/system/pi-autopilot.timer
 chmod 644 /etc/systemd/system/pi-autopilot.timer
 
 echo "Setting up systemd service for dashboard..."
-cp $INSTALL_DIR/pi-autopilot-dashboard.service /etc/systemd/system/
+cp "$INSTALL_DIR/pi-autopilot-dashboard.service" /etc/systemd/system/
 chmod 644 /etc/systemd/system/pi-autopilot-dashboard.service
 
 systemctl daemon-reload
