@@ -4,7 +4,7 @@ import os
 import json
 from datetime import datetime
 
-from agents.reddit_ingest import ingest_reddit_posts
+from agents.ingest_factory import IngestFactory
 from agents.problem_agent import extract_problem
 from agents.spec_agent import generate_spec
 from agents.content_agent import generate_content
@@ -181,18 +181,63 @@ def run_pipeline():
                 error_occurred=True
             )
         
-        print("=== REDDIT INGESTION ===")
-        ingest_result = ingest_reddit_posts()
-        print(f"Saved {ingest_result['total_saved']} new posts")
+        print("=== DATA INGESTION ===")
         
-        # Log ingestion in audit trail
-        for post_id in ingest_result.get('post_ids', []):
-            audit_logger.log(
-                action='post_ingested',
-                post_id=post_id,
-                run_id=run_id,
-                details={'source': 'reddit', 'subreddits': settings.reddit_subreddits}
-            )
+        # Get all enabled ingest agents from factory
+        ingest_factory = IngestFactory(settings)
+        ingest_agents = ingest_factory.get_enabled_agents()
+        
+        if not ingest_agents:
+            print("ERROR: No data sources enabled or configured properly!")
+            print("Check DATA_SOURCES and related credentials in .env file")
+            return
+        
+        print(f"Enabled data sources: {', '.join(agent.source_name for agent in ingest_agents)}")
+        
+        # Fetch posts from all enabled sources
+        all_posts = []
+        for agent in ingest_agents:
+            try:
+                print(f"Fetching from {agent.source_name}...")
+                posts = agent.fetch_posts()
+                print(f"  → Fetched {len(posts)} posts from {agent.source_name}")
+                
+                # Save posts to storage
+                saved_count = 0
+                post_ids = []
+                for post in posts:
+                    if storage.save_post(post):
+                        saved_count += 1
+                        post_ids.append(post['id'])
+                
+                print(f"  → Saved {saved_count} new posts")
+                
+                # Log ingestion in audit trail
+                for post_id in post_ids:
+                    audit_logger.log(
+                        action='post_ingested',
+                        post_id=post_id,
+                        run_id=run_id,
+                        details={'source': agent.source_name}
+                    )
+                
+            except Exception as e:
+                print(f"ERROR: Failed to fetch from {agent.source_name}: {e}")
+                error_artifact = error_handler.log_error(
+                    post_id=None,
+                    stage='data_ingestion',
+                    exception=e,
+                    context={'source': agent.source_name}
+                )
+                audit_logger.log(
+                    action='error_occurred',
+                    post_id=None,
+                    run_id=run_id,
+                    details={'stage': 'data_ingestion', 'source': agent.source_name, 'error': str(e)},
+                    error_occurred=True
+                )
+                # Continue with other sources
+                continue
         
         print("\n=== PROCESSING POSTS ===")
         unprocessed_posts = storage.get_unprocessed_posts()

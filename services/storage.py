@@ -21,6 +21,11 @@ class Storage:
     
     def _init_db(self):
         with self._get_conn() as conn:
+            # Check if we need to run migrations
+            cursor = conn.execute("PRAGMA user_version")
+            version = cursor.fetchone()[0]
+            
+            # Create tables if they don't exist
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS reddit_posts (
                     id TEXT PRIMARY KEY,
@@ -31,9 +36,26 @@ class Storage:
                     author TEXT,
                     score INTEGER,
                     url TEXT,
-                    raw_json TEXT
+                    raw_json TEXT,
+                    source TEXT DEFAULT 'reddit'
                 )
             """)
+            
+            # Run migration if needed (version 0 -> version 1)
+            if version == 0:
+                # Check if source column exists
+                cursor = conn.execute("PRAGMA table_info(reddit_posts)")
+                columns = [col[1] for col in cursor.fetchall()]
+                
+                if 'source' not in columns:
+                    # Add source column to existing tables
+                    conn.execute("""
+                        ALTER TABLE reddit_posts ADD COLUMN source TEXT DEFAULT 'reddit'
+                    """)
+                
+                # Update schema version
+                conn.execute("PRAGMA user_version = 1")
+                conn.commit()
             
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS pipeline_runs (
@@ -107,19 +129,26 @@ class Storage:
     def save_post(self, post_data: dict):
         with self._get_conn() as conn:
             try:
+                # Convert created_utc to timestamp for backward compatibility
+                timestamp = int(post_data.get("created_utc", post_data.get("timestamp", time.time())))
+                
+                # Extract subreddit from source or set default
+                subreddit = post_data.get("subreddit", post_data.get("source", "unknown"))
+                
                 conn.execute("""
-                    INSERT INTO reddit_posts (id, title, body, timestamp, subreddit, author, score, url, raw_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO reddit_posts (id, title, body, timestamp, subreddit, author, score, url, raw_json, source)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     post_data["id"],
                     post_data["title"],
-                    post_data["body"],
-                    post_data["timestamp"],
-                    post_data["subreddit"],
-                    post_data["author"],
-                    post_data["score"],
-                    post_data["url"],
-                    json.dumps(post_data)
+                    post_data.get("body", ""),
+                    timestamp,
+                    subreddit,
+                    post_data.get("author", "unknown"),
+                    post_data.get("score", 0),
+                    post_data.get("url", ""),
+                    json.dumps(post_data),
+                    post_data.get("source", "unknown")
                 ))
                 conn.commit()
                 return True

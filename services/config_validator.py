@@ -14,10 +14,14 @@ class ConfigValidator:
     """Validate all required configuration on startup."""
     
     REQUIRED_FIELDS = [
-        'reddit_client_id',
-        'reddit_client_secret',
         'openai_api_key',
         'gumroad_access_token'
+    ]
+    
+    # Reddit fields now optional - only required if reddit is enabled
+    REDDIT_FIELDS = [
+        'reddit_client_id',
+        'reddit_client_secret'
     ]
     
     API_KEY_PATTERNS = {
@@ -42,10 +46,10 @@ class ConfigValidator:
         self.errors = []
         
         self._validate_required_fields()
+        self._validate_data_sources()
         self._validate_api_key_formats()
         self._validate_numeric_ranges()
         self._validate_paths()
-        self._validate_subreddit_list()
         
         if self.errors:
             return False, self.errors
@@ -67,10 +71,63 @@ class ConfigValidator:
             if not value or not str(value).strip():
                 self.errors.append(f"Missing required field: {field}")
     
+    def _validate_data_sources(self):
+        """Validate data sources configuration."""
+        # Check that at least one data source is configured
+        if not self.config.data_sources or not str(self.config.data_sources).strip():
+            self.errors.append("No data sources configured. Set DATA_SOURCES in .env")
+            return
+        
+        sources = [s.strip().lower() for s in str(self.config.data_sources).split(',') if s.strip()]
+        
+        if not sources:
+            self.errors.append("No valid data sources configured. Set DATA_SOURCES in .env")
+            return
+        
+        valid_sources = ['reddit', 'hackernews', 'rss', 'file']
+        
+        # Check for invalid source names
+        for source in sources:
+            if source and source not in valid_sources:
+                self.errors.append(
+                    f"Invalid data source '{source}'. "
+                    f"Valid options: {', '.join(valid_sources)}"
+                )
+        
+        # Validate source-specific requirements
+        if 'reddit' in sources:
+            for field in self.REDDIT_FIELDS:
+                value = getattr(self.config, field, None)
+                if not value or not str(value).strip():
+                    self.errors.append(
+                        f"Reddit source enabled but {field} not configured"
+                    )
+            # Validate subreddit list
+            self._validate_subreddit_list()
+        
+        if 'rss' in sources:
+            if not self.config.rss_feed_urls or not str(self.config.rss_feed_urls).strip():
+                self.errors.append(
+                    "RSS source enabled but rss_feed_urls not configured"
+                )
+        
+        if 'file' in sources:
+            if not self.config.file_ingest_paths or not str(self.config.file_ingest_paths).strip():
+                self.errors.append(
+                    "File source enabled but file_ingest_paths not configured"
+                )
+    
     def _validate_api_key_formats(self):
         """Check API key formats match expected patterns."""
         for field, pattern in self.API_KEY_PATTERNS.items():
             value = getattr(self.config, field, None)
+            
+            # Skip Reddit credential validation if reddit not in data sources
+            if field in self.REDDIT_FIELDS:
+                sources = [s.strip().lower() for s in self.config.data_sources.split(',')]
+                if 'reddit' not in sources:
+                    continue
+            
             if value and not re.match(pattern, str(value)):
                 self.errors.append(
                     f"Invalid format for {field}. "
@@ -115,14 +172,18 @@ class ConfigValidator:
             )
     
     def _validate_subreddit_list(self):
-        """Check subreddit names are valid format."""
+        """Check subreddit names are valid format (only when Reddit is enabled)."""
+        if not self.config.reddit_subreddits or not self.config.reddit_subreddits.strip():
+            self.errors.append("Reddit enabled but no subreddits configured")
+            return
+        
         subreddits = [
             s.strip() for s in self.config.reddit_subreddits.split(',')
         ]
         
         for sub in subreddits:
-            if not re.match(r'^[a-zA-Z0-9_-]{2,}$', sub):
+            if sub and not re.match(r'^[a-zA-Z0-9_-]{2,}$', sub):
                 self.errors.append(f"Invalid subreddit name: {sub}")
         
-        if not subreddits:
-            self.errors.append("No subreddits configured")
+        if not subreddits or all(not s for s in subreddits):
+            self.errors.append("No valid subreddits configured")

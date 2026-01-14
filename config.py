@@ -4,9 +4,29 @@ from services.config_validator import ConfigValidator, ConfigValidationError
 
 
 class Settings(BaseSettings):
-    reddit_client_id: str
-    reddit_client_secret: str
+    # Data source selection (comma-separated list)
+    data_sources: str = "hackernews"
+    
+    # Reddit config (optional - only needed if using reddit source)
+    reddit_client_id: str = ""
+    reddit_client_secret: str = ""
     reddit_user_agent: str = "Pi-Autopilot/2.0"
+    reddit_subreddits: str = "SideProject,Entrepreneur,startups"
+    reddit_min_score: int = 10
+    reddit_post_limit: int = 20
+    
+    # HackerNews config (no API key required!)
+    hn_min_score: int = 50
+    hn_post_limit: int = 20
+    hn_story_types: str = "ask_hn,show_hn"
+    
+    # RSS config
+    rss_feed_urls: str = ""
+    rss_post_limit: int = 20
+    
+    # File ingest config
+    file_ingest_paths: str = ""
+    file_post_limit: int = 20
     
     openai_api_key: str
     openai_model: str = "gpt-4"
@@ -15,10 +35,6 @@ class Settings(BaseSettings):
     
     database_path: str = "./data/pipeline.db"
     artifacts_path: str = "./data/artifacts"
-    
-    reddit_subreddits: str = "SideProject,Entrepreneur,startups"
-    reddit_min_score: int = 10
-    reddit_post_limit: int = 20
     
     max_regeneration_attempts: int = 1
     

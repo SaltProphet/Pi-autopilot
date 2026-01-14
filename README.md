@@ -6,6 +6,8 @@ Fully automated, verifier-first digital product engine for Raspberry Pi.
 
 ## 🎯 Key Features
 
+✅ **Multi-Source Data Ingestion** - HackerNews (no API key!), Reddit, RSS, or file imports  
+✅ **Works Out-of-Box** - Default HackerNews source requires zero API credentials  
 ✅ **Automated Scheduling** - Systemd timer runs pipeline hourly (configurable)  
 ✅ **Real-time Dashboard** - Web UI for cost, activity, and status monitoring  
 ✅ **Cost Controls** - Hard limits prevent runaway API bills  
@@ -16,13 +18,16 @@ Fully automated, verifier-first digital product engine for Raspberry Pi.
 ## System Architecture
 
 ```
-Reddit → Problem Extraction → Spec Generation → Content Generation → Verification → Gumroad Upload
-         ↓
-    [Systemd Timer: Hourly]
-         ↓
-    [Real-time Dashboard: Monitoring]
+Multiple Data Sources:
+  - HackerNews (no API key!) ─┐
+  - Reddit (optional)         ├──→ Problem Extraction → Spec Generation → Content Generation → Verification → Gumroad Upload
+  - RSS Feeds (optional)      │           ↓
+  - File Import (optional) ───┘      [Systemd Timer: Hourly]
+                                          ↓
+                                [Real-time Dashboard: Monitoring]
 ```
 
+**Graceful Degradation**: If one source fails, others continue working.  
 Cost governor enforces hard limits at every LLM call.
 
 ## 🚀 Quick Start
@@ -322,7 +327,13 @@ cat .env
 ls -la .env data/
 
 # Test API connectivity
+# HackerNews (no auth required)
+python -c "from agents.hackernews_ingest import HackerNewsIngestAgent; print('HackerNews OK')"
+
+# Reddit (if enabled)
 python -c "from services.reddit_client import RedditClient; print('Reddit OK')"
+
+# OpenAI
 python -c "from openai import OpenAI; print('OpenAI OK')"
 ```
 
@@ -377,24 +388,148 @@ Backups are stored in `./config_backups/` with timestamps. The system keeps the 
 
 ## Configuration
 
+### Data Sources
+
+Pi-Autopilot supports **multiple pluggable data sources**, allowing you to ingest problems from various platforms:
+
+#### Available Sources
+
+1. **HackerNews** (Default - No API Key Required! ✅)
+   - Uses public Algolia API
+   - Fetches Ask HN and Show HN posts
+   - Works out-of-the-box without any credentials
+
+2. **Reddit** (Optional)
+   - Requires Reddit API credentials
+   - Fetches from multiple subreddits
+   - High-quality community discussions
+
+3. **RSS Feeds** (Optional)
+   - Parse any RSS/Atom feed
+   - Blogs, forums, news sites
+   - No authentication needed
+
+4. **File Import** (Optional)
+   - Load posts from JSON/CSV files
+   - Perfect for testing or manual curation
+   - No external API needed
+
+#### Quick Start: Using HackerNews (No Setup Required)
+
+The default configuration uses HackerNews, which requires **no API credentials**:
+
+```env
+# Default - works immediately!
+DATA_SOURCES=hackernews
+```
+
+Just add your OpenAI and Gumroad credentials and you're ready to go!
+
+#### Enabling Multiple Sources
+
+You can enable multiple sources simultaneously:
+
+```env
+# Use multiple sources together
+DATA_SOURCES=hackernews,reddit,rss
+
+# Or just one
+DATA_SOURCES=reddit
+```
+
+#### Configuration Examples
+
+**Example 1: HackerNews Only (Simplest Setup)**
+```env
+DATA_SOURCES=hackernews
+HN_MIN_SCORE=50
+HN_POST_LIMIT=20
+HN_STORY_TYPES=ask_hn,show_hn
+
+OPENAI_API_KEY=your_key_here
+GUMROAD_ACCESS_TOKEN=your_token_here
+```
+
+**Example 2: Reddit + HackerNews**
+```env
+DATA_SOURCES=reddit,hackernews
+
+# Reddit config
+REDDIT_CLIENT_ID=your_reddit_client_id
+REDDIT_CLIENT_SECRET=your_reddit_client_secret
+REDDIT_SUBREDDITS=SideProject,Entrepreneur
+REDDIT_MIN_SCORE=10
+
+# HackerNews config
+HN_MIN_SCORE=50
+HN_POST_LIMIT=20
+```
+
+**Example 3: All Sources**
+```env
+DATA_SOURCES=reddit,hackernews,rss,file
+
+# Reddit
+REDDIT_CLIENT_ID=xxx
+REDDIT_CLIENT_SECRET=xxx
+REDDIT_SUBREDDITS=SideProject,Entrepreneur
+
+# HackerNews (no credentials needed)
+HN_MIN_SCORE=50
+HN_POST_LIMIT=20
+HN_STORY_TYPES=ask_hn,show_hn
+
+# RSS Feeds
+RSS_FEED_URLS=https://blog1.com/feed.xml,https://blog2.com/rss
+RSS_POST_LIMIT=20
+
+# File Import
+FILE_INGEST_PATHS=/path/to/posts.json,/path/to/data.csv
+FILE_POST_LIMIT=20
+```
+
+### Full Configuration Reference
+
 Edit `.env` or use the web interface at `http://localhost:8000/config`:
 
 ```env
-REDDIT_CLIENT_ID=your_reddit_client_id
-REDDIT_CLIENT_SECRET=your_reddit_client_secret
+# ==== DATA SOURCES ====
+# Comma-separated list: reddit,hackernews,rss,file
+DATA_SOURCES=hackernews
+
+# ==== REDDIT (Optional - only needed if using reddit source) ====
+REDDIT_CLIENT_ID=
+REDDIT_CLIENT_SECRET=
 REDDIT_USER_AGENT=Pi-Autopilot/2.0
-
-OPENAI_API_KEY=your_openai_api_key
-OPENAI_MODEL=gpt-4
-
-GUMROAD_ACCESS_TOKEN=your_gumroad_access_token
-
-DATABASE_PATH=./data/pipeline.db
-ARTIFACTS_PATH=./data/artifacts
-
 REDDIT_SUBREDDITS=SideProject,Entrepreneur,startups
 REDDIT_MIN_SCORE=10
 REDDIT_POST_LIMIT=20
+
+# ==== HACKERNEWS (No API key required!) ====
+HN_MIN_SCORE=50
+HN_POST_LIMIT=20
+HN_STORY_TYPES=ask_hn,show_hn
+
+# ==== RSS FEEDS (Optional) ====
+RSS_FEED_URLS=
+RSS_POST_LIMIT=20
+
+# ==== FILE INGEST (Optional) ====
+FILE_INGEST_PATHS=
+FILE_POST_LIMIT=20
+
+# ==== OPENAI (Required) ====
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-4
+OPENAI_INPUT_TOKEN_PRICE=0.00003
+OPENAI_OUTPUT_TOKEN_PRICE=0.00006
+
+# ==== GUMROAD (Required) ====
+GUMROAD_ACCESS_TOKEN=your_gumroad_access_token
+
+# ==== PIPELINE SETTINGS ====
+DATABASE_PATH=./data/pipeline.db
+ARTIFACTS_PATH=./data/artifacts
 
 MAX_REGENERATION_ATTEMPTS=1
 
@@ -403,10 +538,21 @@ MAX_USD_PER_RUN=5.0
 MAX_USD_LIFETIME=100.0
 
 KILL_SWITCH=false
+DRY_RUN=true
 
-OPENAI_INPUT_TOKEN_PRICE=0.00003
-OPENAI_OUTPUT_TOKEN_PRICE=0.00006
+# ==== SALES FEEDBACK ====
+ZERO_SALES_SUPPRESSION_COUNT=5
+REFUND_RATE_MAX=0.3
+SALES_LOOKBACK_DAYS=30
 ```
+
+### Benefits of Multi-Source Ingestion
+
+✅ **No Single Point of Failure** - If Reddit API is down, HackerNews keeps working  
+✅ **No API Approval Wait** - Start with HackerNews immediately, add Reddit later  
+✅ **Broader Coverage** - Capture problems from multiple communities  
+✅ **Free Testing** - HackerNews requires zero credentials  
+✅ **Graceful Degradation** - Individual source failures don't stop the pipeline
 
 ### Custom Timer Schedule
 
