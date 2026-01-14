@@ -687,6 +687,58 @@ async def restore_backup(request: Request, authenticated: bool = Depends(check_a
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/hardware")
+async def get_hardware_stats(request: Request, authenticated: bool = Depends(check_auth)):
+    """Get system hardware statistics."""
+    check_ip(request)
+    
+    try:
+        import psutil
+        
+        # CPU usage
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+        
+        # Memory usage
+        memory = psutil.virtual_memory()
+        
+        # Disk usage
+        disk = psutil.disk_usage('/')
+        
+        # Temperature (try to get it, may not work on all systems)
+        temperature = None
+        try:
+            temps = psutil.sensors_temperatures()
+            if 'cpu_thermal' in temps:
+                temperature = temps['cpu_thermal'][0].current
+            elif 'coretemp' in temps:
+                temperature = temps['coretemp'][0].current
+        except (AttributeError, KeyError):
+            pass
+        
+        return {
+            "success": True,
+            "cpu": {
+                "percent": round(cpu_percent, 1),
+                "count": psutil.cpu_count()
+            },
+            "memory": {
+                "percent": round(memory.percent, 1),
+                "used_gb": round(memory.used / (1024**3), 2),
+                "total_gb": round(memory.total / (1024**3), 2)
+            },
+            "disk": {
+                "percent": round(disk.percent, 1),
+                "used_gb": round(disk.used / (1024**3), 2),
+                "total_gb": round(disk.total / (1024**3), 2)
+            },
+            "temperature": {
+                "celsius": round(temperature, 1) if temperature else None
+            }
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 if __name__ == "__main__":
     import uvicorn
     print("🚀 Starting Pi-Autopilot Dashboard on http://0.0.0.0:8000")

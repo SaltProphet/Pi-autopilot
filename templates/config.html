@@ -18,6 +18,53 @@
             Please use HTTPS or access from localhost only.
         </div>
 
+        <!-- Hardware Monitoring Section -->
+        <section class="config-section">
+            <h2>📊 System Monitoring</h2>
+            <div class="hardware-section">
+                <div class="hardware-card">
+                    <h3>🖥️ CPU Usage</h3>
+                    <div class="hardware-value" id="cpu-value">--</div>
+                    <div class="hardware-label">Percentage</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="cpu-progress" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="hardware-card">
+                    <h3>💾 Memory Usage</h3>
+                    <div class="hardware-value" id="memory-value">--</div>
+                    <div class="hardware-label">GB Used / Total</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="memory-progress" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="hardware-card">
+                    <h3>💿 Disk Usage</h3>
+                    <div class="hardware-value" id="disk-value">--</div>
+                    <div class="hardware-label">GB Used / Total</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="disk-progress" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="hardware-card">
+                    <h3>🌡️ Temperature</h3>
+                    <div class="hardware-value" id="temp-value">--</div>
+                    <div class="hardware-label">°C</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="temp-progress" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Visualization Chart -->
+            <div class="chart-container">
+                <canvas id="system-chart"></canvas>
+            </div>
+        </section>
+
         <form id="config-form">
             <!-- API Keys Section -->
             <section class="config-section">
@@ -210,6 +257,9 @@
     <!-- Toast Container -->
     <div id="toast-container"></div>
 
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="/static/js/config-manager.js"></script>
+    <script src="/static/js/hardware-monitor.js"></script>
 </body>
 </html>
