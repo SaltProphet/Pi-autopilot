@@ -74,11 +74,16 @@ class ConfigValidator:
     def _validate_data_sources(self):
         """Validate data sources configuration."""
         # Check that at least one data source is configured
-        if not self.config.data_sources or not self.config.data_sources.strip():
+        if not self.config.data_sources or not str(self.config.data_sources).strip():
             self.errors.append("No data sources configured. Set DATA_SOURCES in .env")
             return
         
-        sources = [s.strip().lower() for s in self.config.data_sources.split(',')]
+        sources = [s.strip().lower() for s in str(self.config.data_sources).split(',') if s.strip()]
+        
+        if not sources:
+            self.errors.append("No valid data sources configured. Set DATA_SOURCES in .env")
+            return
+        
         valid_sources = ['reddit', 'hackernews', 'rss', 'file']
         
         # Check for invalid source names
@@ -101,13 +106,13 @@ class ConfigValidator:
             self._validate_subreddit_list()
         
         if 'rss' in sources:
-            if not self.config.rss_feed_urls or not self.config.rss_feed_urls.strip():
+            if not self.config.rss_feed_urls or not str(self.config.rss_feed_urls).strip():
                 self.errors.append(
                     "RSS source enabled but rss_feed_urls not configured"
                 )
         
         if 'file' in sources:
-            if not self.config.file_ingest_paths or not self.config.file_ingest_paths.strip():
+            if not self.config.file_ingest_paths or not str(self.config.file_ingest_paths).strip():
                 self.errors.append(
                     "File source enabled but file_ingest_paths not configured"
                 )

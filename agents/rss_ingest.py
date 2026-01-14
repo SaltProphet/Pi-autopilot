@@ -169,7 +169,7 @@ class RSSIngestAgent(BaseIngestAgent):
         Returns:
             Hash-based ID with 'rss_' prefix
         """
-        hash_obj = hashlib.md5(text.encode())
+        hash_obj = hashlib.sha256(text.encode())
         return f"rss_{hash_obj.hexdigest()[:16]}"
     
     def _parse_date(self, date_str: str) -> float:

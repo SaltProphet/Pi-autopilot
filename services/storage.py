@@ -21,16 +21,11 @@ class Storage:
     
     def _init_db(self):
         with self._get_conn() as conn:
-            # Check if source column exists, if not, add migration
-            cursor = conn.execute("PRAGMA table_info(reddit_posts)")
-            columns = [col[1] for col in cursor.fetchall()]
+            # Check if we need to run migrations
+            cursor = conn.execute("PRAGMA user_version")
+            version = cursor.fetchone()[0]
             
-            if 'source' not in columns:
-                # Migrate existing table by adding source column
-                conn.execute("""
-                    ALTER TABLE reddit_posts ADD COLUMN source TEXT DEFAULT 'reddit'
-                """)
-            
+            # Create tables if they don't exist
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS reddit_posts (
                     id TEXT PRIMARY KEY,
@@ -45,6 +40,22 @@ class Storage:
                     source TEXT DEFAULT 'reddit'
                 )
             """)
+            
+            # Run migration if needed (version 0 -> version 1)
+            if version == 0:
+                # Check if source column exists
+                cursor = conn.execute("PRAGMA table_info(reddit_posts)")
+                columns = [col[1] for col in cursor.fetchall()]
+                
+                if 'source' not in columns:
+                    # Add source column to existing tables
+                    conn.execute("""
+                        ALTER TABLE reddit_posts ADD COLUMN source TEXT DEFAULT 'reddit'
+                    """)
+                
+                # Update schema version
+                conn.execute("PRAGMA user_version = 1")
+                conn.commit()
             
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS pipeline_runs (
