@@ -48,6 +48,18 @@ fi
 echo "Detected user: $REAL_USER"
 echo ""
 
+# Prompt for GitHub username
+echo "GitHub Authentication Setup"
+echo "==========================="
+echo ""
+read -p "Enter your GitHub username: " GITHUB_USERNAME
+echo ""
+
+if [ -z "$GITHUB_USERNAME" ]; then
+    echo "ERROR: GitHub username is required"
+    exit 1
+fi
+
 # Prompt for GitHub PAT
 echo "You need a GitHub Personal Access Token (PAT) to clone the repository."
 echo ""
@@ -60,6 +72,7 @@ echo "  5. Click 'Generate token'"
 echo "  6. Copy the token (you won't be able to see it again!)"
 echo ""
 read -sp "Enter your GitHub Personal Access Token: " GITHUB_TOKEN
+echo ""
 echo ""
 
 if [ -z "$GITHUB_TOKEN" ]; then
@@ -94,15 +107,16 @@ if [ ! -d ".git" ]; then
     # Set up credentials using git credential approve (avoids command line exposure)
     echo "protocol=https
 host=github.com
-username=git
+username=$GITHUB_USERNAME
 password=$GITHUB_TOKEN" | git credential approve
     
     # Now clone without the token in the URL
     if ! git clone https://github.com/SaltProphet/Pi-autopilot.git . 2>&1; then
         # Clear the credential cache on failure
         git credential-cache exit 2>/dev/null || true
-        # Clear the token from memory
+        # Clear credentials from memory
         unset GITHUB_TOKEN
+        unset GITHUB_USERNAME
         
         echo ""
         echo "ERROR: Failed to clone repository"
@@ -123,8 +137,9 @@ password=$GITHUB_TOKEN" | git credential approve
     # Clear the credential cache after successful clone
     git credential-cache exit 2>/dev/null || true
     
-    # Clear the token from memory for security
+    # Clear credentials from memory for security
     unset GITHUB_TOKEN
+    unset GITHUB_USERNAME
     
     echo "✓ Repository cloned successfully"
 fi

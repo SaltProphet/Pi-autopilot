@@ -96,7 +96,7 @@ if [ ! -d ".git" ]; then
     # Test SSH connection to GitHub
     echo ""
     echo "Testing SSH connection to GitHub..."
-    if sudo -u "$REAL_USER" ssh -T -o StrictHostKeyChecking=no -o BatchMode=yes git@github.com 2>&1 | grep -q "successfully authenticated"; then
+    if sudo -u "$REAL_USER" ssh -T -o StrictHostKeyChecking=accept-new -o BatchMode=yes git@github.com 2>&1 | grep -q "successfully authenticated"; then
         echo "✓ SSH connection to GitHub successful"
     else
         echo "ERROR: SSH authentication to GitHub failed"
