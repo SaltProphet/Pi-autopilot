@@ -113,9 +113,8 @@ def get_db():
 def get_pipeline_stats(hours: int = 24):
     """Get pipeline stats for the last N hours."""
     with get_db() as conn:
-        # Cost stats
-        cutoff_time = datetime.now() - timedelta(hours=hours)
-        cutoff_timestamp = cutoff_time.isoformat()
+        # Cost stats - use numeric timestamp comparison
+        cutoff_timestamp = int((datetime.now() - timedelta(hours=hours)).timestamp())
         
         cost_result = conn.execute("""
             SELECT 
@@ -124,10 +123,10 @@ def get_pipeline_stats(hours: int = 24):
                 SUM(tokens_received) as total_output_tokens,
                 COUNT(*) as total_calls
             FROM cost_tracking
-            WHERE timestamp > ?
+            WHERE timestamp >= ?
         """, (cutoff_timestamp,)).fetchone()
         
-        # Pipeline stats
+        # Pipeline stats - use numeric timestamp comparison
         pipeline_result = conn.execute("""
             SELECT 
                 COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
@@ -135,8 +134,8 @@ def get_pipeline_stats(hours: int = 24):
                 COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected,
                 COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed
             FROM pipeline_runs
-            WHERE created_at > strftime('%s', ?)
-        """, (cutoff_time.isoformat(),)).fetchone()
+            WHERE created_at >= ?
+        """, (cutoff_timestamp,)).fetchone()
         
         # Lifetime cost
         lifetime_result = conn.execute("""

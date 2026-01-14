@@ -44,6 +44,9 @@ class LLMClient:
         combined_input = system_prompt + user_content
         estimated_input_tokens = self.cost_governor.estimate_tokens(combined_input)
         estimated_output_tokens = max_tokens
+        
+        self.cost_governor.check_limits_before_call(estimated_input_tokens, estimated_output_tokens)
+        
         def make_api_call():
             return self.client.chat.completions.create(
                 model=self.model,

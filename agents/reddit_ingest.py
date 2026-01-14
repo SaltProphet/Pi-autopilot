@@ -9,6 +9,7 @@ def ingest_reddit_posts():
     
     subreddits = [s.strip() for s in settings.reddit_subreddits.split(',')]
     total_saved = 0
+    post_ids = []
     
     for subreddit_name in subreddits:
         posts = reddit_client.fetch_posts(
@@ -20,5 +21,6 @@ def ingest_reddit_posts():
         for post in posts:
             if storage.save_post(post):
                 total_saved += 1
+                post_ids.append(post["id"])
     
-    return {"total_saved": total_saved}
+    return {"total_saved": total_saved, "post_ids": post_ids}

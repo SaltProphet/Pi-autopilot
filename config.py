@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     kill_switch: bool = False
     dry_run: bool = True
     
-    openai_input_token_price: float = 0.03
-    openai_output_token_price: float = 0.06
+    openai_input_token_price: float = 0.00003
+    openai_output_token_price: float = 0.00006
     
     # Sales feedback configuration
     zero_sales_suppression_count: int = 5
