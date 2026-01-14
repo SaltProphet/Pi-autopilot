@@ -73,9 +73,59 @@ Real-time monitoring of:
 
 ## Configuration
 
-Edit `.env`:
+Pi-Autopilot provides two methods for configuration management:
+
+### Method 1: Web-Based Configuration UI (Recommended)
+
+Access the configuration interface at:
+
+```
+http://<your-pi-ip>:8000/config
+```
+
+Features:
+- 🔑 **API Key Management**: Input and test API keys before saving
+- 🎛️ **Service Toggles**: Enable/disable services with visual switches
+- 💰 **Cost Limit Controls**: Set spending limits with real-time validation
+- ⚙️ **Pipeline Settings**: Configure subreddits, post limits, and scoring thresholds
+- 📦 **Backup Management**: Automatic backups before changes, restore capability
+- 🔒 **Security**: Optional HTTP Basic Auth and IP whitelisting
+
+#### Security Features:
+
+**HTTP Basic Auth** (Optional):
+```env
+DASHBOARD_PASSWORD=your_secure_password
+```
+
+**IP Whitelisting** (Optional):
+```env
+DASHBOARD_ALLOWED_IPS=127.0.0.1,192.168.1.100
+# Use * to allow all IPs (not recommended for production)
+```
+
+**Best Practices:**
+- Always access over HTTPS in production (non-localhost)
+- Use strong passwords for dashboard authentication
+- Restrict IP access when possible
+- Review configuration backups regularly
+
+#### Using the Configuration UI:
+
+1. **Navigate to the config page**: `http://<pi-ip>:8000/config`
+2. **Enter API Keys**: Input your API keys and click "Test" to validate them
+3. **Configure Toggles**: Enable or disable services as needed
+4. **Set Cost Limits**: Adjust spending thresholds
+5. **Update Pipeline Settings**: Configure subreddits and thresholds
+6. **Save Configuration**: Click "💾 Save Configuration"
+7. **Backups**: All changes are automatically backed up. View backups with "📦 View Backups"
+
+### Method 2: Manual .env File Editing
+
+Edit `.env` directly if you prefer:
 
 ```env
+# ===== API Keys =====
 REDDIT_CLIENT_ID=your_reddit_client_id
 REDDIT_CLIENT_SECRET=your_reddit_client_secret
 REDDIT_USER_AGENT=Pi-Autopilot/2.0
@@ -85,23 +135,40 @@ OPENAI_MODEL=gpt-4
 
 GUMROAD_ACCESS_TOKEN=your_gumroad_access_token
 
-DATABASE_PATH=./data/pipeline.db
-ARTIFACTS_PATH=./data/artifacts
+# ===== Service Toggles =====
+OPENAI_ENABLED=true
+REDDIT_ENABLED=true
+GUMROAD_ENABLED=true
+KILL_SWITCH=false
 
-REDDIT_SUBREDDITS=SideProject,Entrepreneur,startups
-REDDIT_MIN_SCORE=10
-REDDIT_POST_LIMIT=20
-
-MAX_REGENERATION_ATTEMPTS=1
-
+# ===== Cost Limits =====
 MAX_TOKENS_PER_RUN=50000
 MAX_USD_PER_RUN=5.0
 MAX_USD_LIFETIME=100.0
 
-KILL_SWITCH=false
+# ===== Pipeline Settings =====
+REDDIT_SUBREDDITS=SideProject,Entrepreneur,startups
+REDDIT_MIN_SCORE=10
+REDDIT_POST_LIMIT=20
 
-OPENAI_INPUT_TOKEN_PRICE=0.00003
-OPENAI_OUTPUT_TOKEN_PRICE=0.00006
+# ===== Other Settings =====
+DATABASE_PATH=./data/pipeline.db
+ARTIFACTS_PATH=./data/artifacts
+MAX_REGENERATION_ATTEMPTS=1
+DRY_RUN=true
+
+OPENAI_INPUT_TOKEN_PRICE=0.03
+OPENAI_OUTPUT_TOKEN_PRICE=0.06
+
+# ===== Dashboard Security (Optional) =====
+DASHBOARD_PASSWORD=
+DASHBOARD_ALLOWED_IPS=127.0.0.1
+```
+
+**Note**: Changes to `.env` require a service restart:
+```bash
+sudo systemctl restart pi-autopilot.service
+sudo systemctl restart pi-autopilot-dashboard.service
 ```
 
 ### Custom Timer Schedule
