@@ -129,7 +129,7 @@ if [ ! -d ".git" ]; then
     echo ""
     echo "Cloning repository via SSH..."
     # Clone as the actual user to use their SSH keys
-    if ! sudo -u "$REAL_USER" git clone git@github.com:SaltProphet/Pi-autopilot.git . 2>&1; then
+    if ! sudo -u "$REAL_USER" git clone git@github.com:SaltProphet/Pi-autopilot.git . ; then
         echo ""
         echo "ERROR: Failed to clone repository"
         echo ""

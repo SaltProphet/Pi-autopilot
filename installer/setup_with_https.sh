@@ -107,10 +107,10 @@ if [ ! -d ".git" ]; then
     
     # Set up credentials using git credential approve (avoids command line exposure)
     # Using printf instead of echo for better security
-    printf 'protocol=https\nhost=github.com\nusername=%s\npassword=%s\n' "$GITHUB_USERNAME" "$GITHUB_TOKEN" | git credential approve
+    printf "protocol=https\nhost=github.com\nusername=%s\npassword=%s\n" "$GITHUB_USERNAME" "$GITHUB_TOKEN" | git credential approve
     
     # Now clone without the token in the URL
-    if ! git clone https://github.com/SaltProphet/Pi-autopilot.git . 2>&1; then
+    if ! git clone https://github.com/SaltProphet/Pi-autopilot.git . ; then
         # Clear the credential cache on failure
         git credential-cache exit 2>/dev/null || true
         # Reset global credential helper
