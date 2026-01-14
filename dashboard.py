@@ -17,6 +17,7 @@ import sqlite3
 import json
 from datetime import datetime, timedelta
 from contextlib import contextmanager
+from typing import Optional
 import asyncio
 import os
 import secrets
@@ -26,8 +27,8 @@ from services.config_manager import ConfigManager
 
 app = FastAPI()
 
-# HTTP Basic Auth for dashboard
-security = HTTPBasic()
+# HTTP Basic Auth for dashboard (optional)
+security = HTTPBasic(auto_error=False)
 
 # Initialize ConfigManager
 config_manager = ConfigManager()
@@ -63,23 +64,31 @@ if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
-def verify_dashboard_auth(credentials: HTTPBasicCredentials = Depends(security)):
+def verify_dashboard_auth(credentials: Optional[HTTPBasicCredentials] = Depends(security)) -> bool:
     """Verify dashboard authentication if password is set.
     
     Args:
-        credentials: HTTP Basic Auth credentials
+        credentials: HTTP Basic Auth credentials (optional)
     
     Returns:
-        True if authenticated
+        True if authenticated or no password required
     
     Raises:
         HTTPException: If authentication fails
     """
     dashboard_password = os.getenv('DASHBOARD_PASSWORD', '')
     
-    # No password set - allow access
+    # No password set - allow access without credentials
     if not dashboard_password:
         return True
+    
+    # Password is set but no credentials provided
+    if credentials is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Basic"}
+        )
     
     # Verify password
     if not secrets.compare_digest(credentials.password, dashboard_password):

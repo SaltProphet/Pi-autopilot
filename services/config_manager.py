@@ -175,7 +175,13 @@ class ConfigManager:
                 
                 elif category == 'toggles':
                     # Convert string to boolean
-                    bool_value = value.lower() in ('true', '1', 'yes') if value else schema.get('default', False)
+                    if isinstance(value, bool):
+                        bool_value = value
+                    elif isinstance(value, str):
+                        bool_value = value.lower() in ('true', '1', 'yes')
+                    else:
+                        bool_value = schema.get('default', False)
+                    
                     config[category][key] = {
                         'value': bool_value,
                         'description': schema.get('description', '')
