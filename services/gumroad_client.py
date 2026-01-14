@@ -8,10 +8,22 @@ class GumroadClient:
         self.access_token = settings.gumroad_access_token
         self.base_url = "https://api.gumroad.com/v2"
         self.retry_handler = RetryHandler()
+        self.dry_run = settings.dry_run
     
     def create_product(self, name: str, description: str, price_cents: int, custom_permalink: str = None):
         if not isinstance(price_cents, int) or price_cents <= 0:
             raise ValueError(f"price_cents must be a positive integer, got {price_cents}")
+        
+        # DRY RUN MODE: Return mock success without making API call
+        if self.dry_run:
+            print(f"[DRY RUN] Would create Gumroad product: '{name}' at ${price_cents/100:.2f}")
+            return {
+                "id": f"dry_run_product_{int(name.__hash__() if name else 0)}",
+                "short_url": f"https://gumroad.com/l/dry-run-{price_cents}",
+                "name": name,
+                "description": description[:100] + "..." if len(description) > 100 else description,
+                "price": price_cents
+            }
         
         data = {
             "access_token": self.access_token,
@@ -54,6 +66,11 @@ class GumroadClient:
             - views: Total views (if available)
             - refunds: Number of refunds
         """
+        # DRY RUN MODE: Return empty list (no sales data in dry run)
+        if self.dry_run:
+            print("[DRY RUN] Would fetch sales data from Gumroad")
+            return []
+        
         def make_api_call():
             response = requests.get(
                 f"{self.base_url}/products",

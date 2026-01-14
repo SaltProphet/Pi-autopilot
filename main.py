@@ -51,6 +51,12 @@ def run_pipeline():
         print("KILL SWITCH ACTIVE - Pipeline execution aborted")
         return
     
+    if settings.dry_run:
+        print("=" * 60)
+        print("DRY RUN MODE ENABLED - No real Gumroad uploads will be made")
+        print("=" * 60)
+        print()
+    
     cost_governor = CostGovernor()
     llm_client = LLMClient(cost_governor)
     storage = Storage()
@@ -360,13 +366,21 @@ def run_pipeline():
                 upload_path = save_artifact(post_id, "gumroad_upload", upload_result)
                 
                 if upload_result.get("success"):
-                    print(f"SUCCESS: Product uploaded - {upload_result.get('product_url')}")
+                    dry_run_prefix = "[DRY RUN] " if settings.dry_run else ""
+                    print(f"SUCCESS: {dry_run_prefix}Product uploaded - {upload_result.get('product_url')}")
                     storage.log_pipeline_run(post_id, "gumroad_upload", "completed", upload_path)
+                    
+                    upload_details = {
+                        'product_url': upload_result.get('product_url'), 
+                        'price': spec_data.get('price_recommendation'),
+                        'dry_run': settings.dry_run
+                    }
+                    
                     audit_logger.log(
                         action='gumroad_uploaded',
                         post_id=post_id,
                         run_id=run_id,
-                        details={'product_url': upload_result.get('product_url'), 'price': spec_data.get('price_recommendation')}
+                        details=upload_details
                     )
                 else:
                     print("FAIL: Gumroad upload failed")
