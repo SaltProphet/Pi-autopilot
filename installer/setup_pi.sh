@@ -48,7 +48,9 @@ mkdir -p $INSTALL_DIR
 cd $INSTALL_DIR
 
 if [ ! -d ".git" ]; then
-    echo "Cloning repository..."
+    echo "Cloning repository via SSH..."
+    echo "Note: This requires SSH keys to be configured with GitHub."
+    echo "If this fails, see: https://docs.github.com/en/authentication/connecting-to-github-with-ssh"
     git clone git@github.com:SaltProphet/Pi-autopilot.git .
 fi
 

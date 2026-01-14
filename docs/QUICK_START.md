@@ -34,11 +34,11 @@ ssh -T git@github.com
 ### On Your Raspberry Pi
 
 ```bash
-# 1. Clone repository first (if not already done)
-git clone git@github.com:SaltProphet/Pi-autopilot.git /opt/pi-autopilot
-cd /opt/pi-autopilot
+# 1. Clone the repository with SSH
+git clone git@github.com:SaltProphet/Pi-autopilot.git
+cd Pi-autopilot
 
-# 2. Run setup
+# 2. Run the installer
 sudo bash installer/setup_pi.sh
 
 # 3. Add API keys

@@ -59,6 +59,10 @@ ssh -T git@github.com
 #### Installation
 
 ```bash
+# Clone the repository with SSH
+git clone git@github.com:SaltProphet/Pi-autopilot.git
+cd Pi-autopilot
+
 # Run the all-in-one installer
 sudo bash installer/setup_pi.sh
 

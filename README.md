@@ -44,6 +44,11 @@ cat ~/.ssh/id_ed25519.pub
 ### Installation (Pi)
 
 ```bash
+# Clone the repository
+git clone git@github.com:SaltProphet/Pi-autopilot.git
+cd Pi-autopilot
+
+# Run the installer
 sudo bash installer/setup_pi.sh
 ```
 
