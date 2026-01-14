@@ -68,8 +68,10 @@ if [ -z "$GITHUB_TOKEN" ]; then
 fi
 
 # Validate token format (should be a long alphanumeric string)
-if ! echo "$GITHUB_TOKEN" | grep -qE '^[a-zA-Z0-9_]{20,}$'; then
-    echo "WARNING: Token format looks unusual. Proceeding anyway..."
+# GitHub tokens can contain letters, numbers, underscores, and sometimes dots/hyphens
+if [ ${#GITHUB_TOKEN} -lt 20 ]; then
+    echo "ERROR: Token seems too short. GitHub tokens are typically 40+ characters."
+    exit 1
 fi
 
 echo ""
@@ -85,12 +87,18 @@ if [ ! -d ".git" ]; then
     echo ""
     echo "Cloning repository via HTTPS..."
     
-    # Clone using HTTPS with PAT (use git credential helper to avoid exposure)
-    # Set up a temporary credential helper
+    # Use git credential helper to securely handle the token
+    # Configure credential helper with a short timeout
     git config --global credential.helper 'cache --timeout=300'
     
-    # Clone with the token - it will be cached temporarily
-    if ! git clone https://${GITHUB_TOKEN}@github.com/SaltProphet/Pi-autopilot.git . 2>/dev/null; then
+    # Set up credentials using git credential approve (avoids command line exposure)
+    echo "protocol=https
+host=github.com
+username=git
+password=$GITHUB_TOKEN" | git credential approve
+    
+    # Now clone without the token in the URL
+    if ! git clone https://github.com/SaltProphet/Pi-autopilot.git . 2>&1; then
         # Clear the credential cache on failure
         git credential-cache exit 2>/dev/null || true
         # Clear the token from memory
