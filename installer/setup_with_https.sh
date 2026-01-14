@@ -208,6 +208,29 @@ chmod 644 /etc/cron.d/pi-autopilot-backup
 echo ""
 echo "✅ Setup complete!"
 echo ""
+
+# Get the Pi's IP address
+PI_IP=$(hostname -I | awk '{print $1}')
+
+echo ""
+echo "🚀 Opening dashboard in your browser..."
+echo "   Dashboard URL: http://${PI_IP}:8000"
+
+# Wait a moment for the service to fully start
+sleep 2
+
+# Try to open the browser (works on Pi with desktop environment)
+if command -v xdg-open > /dev/null; then
+    xdg-open "http://${PI_IP}:8000" 2>/dev/null &
+elif command -v chromium-browser > /dev/null; then
+    chromium-browser "http://${PI_IP}:8000" 2>/dev/null &
+elif command -v firefox > /dev/null; then
+    firefox "http://${PI_IP}:8000" 2>/dev/null &
+else
+    echo "   (No browser found - please open manually)"
+fi
+
+echo ""
 echo "Next steps:"
 echo "1. Edit /opt/pi-autopilot/.env with your API keys"
 echo "2. Test run: sudo systemctl start pi-autopilot.service"
