@@ -201,5 +201,6 @@ function updateChart(cpuPercent, memoryPercent) {
     // Update chart
     systemChart.data.datasets[0].data = [...cpuHistory];
     systemChart.data.datasets[1].data = [...memoryHistory];
-    systemChart.update('none'); // Update without animation for smoother experience
+    // Update without animation for smoother real-time updates
+    systemChart.update({duration: 0, lazy: false});
 }

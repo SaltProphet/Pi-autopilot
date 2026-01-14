@@ -701,18 +701,20 @@ async def get_hardware_stats(request: Request, authenticated: bool = Depends(che
         # Memory usage
         memory = psutil.virtual_memory()
         
-        # Disk usage
-        disk = psutil.disk_usage('/')
+        # Disk usage - use root path or main drive
+        import platform
+        disk_path = '/' if platform.system() != 'Windows' else 'C:\\'
+        disk = psutil.disk_usage(disk_path)
         
         # Temperature (try to get it, may not work on all systems)
         temperature = None
         try:
             temps = psutil.sensors_temperatures()
-            if 'cpu_thermal' in temps:
+            if 'cpu_thermal' in temps and len(temps['cpu_thermal']) > 0:
                 temperature = temps['cpu_thermal'][0].current
-            elif 'coretemp' in temps:
+            elif 'coretemp' in temps and len(temps['coretemp']) > 0:
                 temperature = temps['coretemp'][0].current
-        except (AttributeError, KeyError):
+        except (AttributeError, KeyError, IndexError):
             pass
         
         return {
