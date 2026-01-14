@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     kill_switch: bool = False
     dry_run: bool = True
     
+    # Dashboard security (optional)
+    dashboard_password: str = ""
+    dashboard_allowed_ips: str = "127.0.0.1"
+    
     openai_input_token_price: float = 0.00003
     openai_output_token_price: float = 0.00006
     
