@@ -28,10 +28,10 @@ class Settings(BaseSettings):
     file_ingest_paths: str = ""
     file_post_limit: int = 20
     
-    openai_api_key: str
+    openai_api_key: str = ""
     openai_model: str = "gpt-4"
     
-    gumroad_access_token: str
+    gumroad_access_token: str = ""
     
     database_path: str = "./data/pipeline.db"
     artifacts_path: str = "./data/artifacts"
